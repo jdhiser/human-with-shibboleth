@@ -16,12 +16,24 @@ class WebDriverHelper(BaseDriverHelper):
     def __init__(self):
         super().__init__(name=DRIVER_NAME)
         self._driver_path = ChromeDriverManager().install()
-        self._driver = webdriver.Chrome(self._driver_path, options=self.options)
+        self._driver = None
 
     @property
     def driver(self):
+        if self._driver == None:
+            self._driver = webdriver.Chrome(self._driver_path, options=self.options)
         return self._driver
-    
+
+    def stop_browser(self):
+        if self._driver == None:
+            return
+        self._driver.quit()
+        self._driver = None
+
+    def restart_browser(self):
+        self._driver.quit()
+        self._driver = webdriver.Chrome(self._driver_path, options=self.options)
+
     def cleanup(self):
         self._driver.quit()
 
@@ -33,5 +45,5 @@ class WebDriverHelper(BaseDriverHelper):
             driver.quit()
             return True
         except Exception as e:
-            print('Could not load ChromeDriver: %s'.format(e))
+            print('Could not load ChromeDriver: {0}'.format(e))
             return False

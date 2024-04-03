@@ -1,10 +1,10 @@
+import traceback
 from time import sleep
 import os
 import random
 
 from ..utility.base_workflow import BaseWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -62,17 +62,20 @@ class GoogleSearch(BaseWorkflow):
 
         except Exception as e:
             print('Error performing google search %s: %s' % (random_search.rstrip(), e))
+            print('At:')
+            print(e)
+            print(traceback.format_exc())
 
     def _click_on_search_result(self):
         print(".... Clicking on search  result")
-        search_result = WebDriverWait(self.driver.driver, 15).until(EC.visibility_of_any_elements_located((By.CLASS_NAME, "yuRUbf")))[0]
+        search_result = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.CLASS_NAME, "yuRUbf")))[0]
         ActionChains(self.driver.driver).move_to_element(search_result).click(search_result).perform()
 
     def _browse_search_results(self):
         # Click through search result pages
         print(".... Browsing search results")
         for _ in range(0,random.randint(0,MAX_PAGES)):
-            next_button = WebDriverWait(self.driver.driver, 15).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
+            next_button = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
             ActionChains(self.driver.driver).move_to_element(next_button).click(next_button).perform()
             sleep(DEFAULT_WAIT_TIME)
 
@@ -86,7 +89,7 @@ class GoogleSearch(BaseWorkflow):
 
     def _hover_click_feeling_lucky(self):
         print(".... Hovering & clicking 'I'm Feeling lucky' button")
-        element = WebDriverWait(self.driver.driver, 15).until(EC.visibility_of_any_elements_located((By. CSS_SELECTOR, '[name="btnI"][type="submit"]')))[0]
+        element = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By. CSS_SELECTOR, '[name="btnI"][type="submit"]')))[0]
         ActionChains(self.driver.driver).move_to_element(element).click(element).perform()
 
     def _navigate_webpage(self):

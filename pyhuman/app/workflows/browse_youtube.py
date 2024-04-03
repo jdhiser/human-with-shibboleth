@@ -58,7 +58,15 @@ class YoutubeSearch(BaseWorkflow):
         # Click on a random video from the search results
         WebDriverWait(self.driver.driver, 10).until(EC.presence_of_all_elements_located((By.ID, "video-title")))
         search_results = self.driver.driver.find_elements(By.ID, "video-title")
-        search_results[random.randrange(0, len(search_results)-1)].click()
+        attempts = 0
+        while attempts < 10:
+            try:
+                search_results[random.randrange(0, len(search_results)-1)].click()
+                attempts = 10
+            except:
+                attempts += 1
+                print ("... Failed to click, retrying.")
+
         sleep(random.randrange(MIN_WATCH_TIME, MAX_WATCH_TIME))
 
         # Click on a random video from the suggested videos
@@ -67,9 +75,9 @@ class YoutubeSearch(BaseWorkflow):
             suggested_videos = self.driver.driver.find_elements(By.ID, "video-title")
             try:
                 suggested_videos[random.randrange(0,len(suggested_videos)-1)].click()
-            except ElementNotInteractableException as e:
+            except ElementNotInteractableException:
                 pass
-            except ElementClickInterceptedException as e:
+            except ElementClickInterceptedException:
                 pass
 
     def _get_random_search(self):
