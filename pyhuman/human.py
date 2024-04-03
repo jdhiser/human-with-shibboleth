@@ -5,6 +5,7 @@ import random
 import sys
 from importlib import import_module
 from time import sleep
+import traceback
 
 
 TASK_CLUSTER_COUNT = 5
@@ -19,7 +20,13 @@ def emulation_loop(workflows, clustersize, taskinterval, taskgroupinterval, extr
             sleep(random.randrange(taskinterval))
             index = random.randrange(len(workflows))
             print(workflows[index].display)
-            workflows[index].action(extra)
+            try:
+                workflows[index].action(extra)
+            except:
+                print('')
+                print("Workflow {0} failed".format(workflows[index].display))
+                print(traceback.format_exc())
+
         sleep(random.randrange(taskgroupinterval))
 
 
