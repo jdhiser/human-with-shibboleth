@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import ElementClickInterceptedException
 
 WORKFLOW_NAME = 'YoutubeBrowser'
 WORKFLOW_DESCRIPTION = 'Browse Youtube'
@@ -67,6 +68,8 @@ class YoutubeSearch(BaseWorkflow):
             try:
                 suggested_videos[random.randrange(0,len(suggested_videos)-1)].click()
             except ElementNotInteractableException as e:
+                pass
+            except ElementClickInterceptedException as e:
                 pass
 
     def _get_random_search(self):
