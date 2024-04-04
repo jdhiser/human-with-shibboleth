@@ -6,15 +6,19 @@ import sys
 from importlib import import_module
 from time import sleep
 import traceback
+import time
+from app.utility.webdriver_helper import WebDriverHelper
 
 
 TASK_CLUSTER_COUNT = 5
 TASK_INTERVAL_SECONDS = 10
 GROUPING_INTERVAL_SECONDS = 500
+HUMAN_LIFESPAN_SECONDS = 0
 EXTRA_DEFAULTS = []
 
 
-def emulation_loop(workflows, clustersize, taskinterval, taskgroupinterval, extra):
+def emulation_loop(workflows, clustersize, taskinterval, taskgroupinterval, lifespan_seconds, extra):
+    t_end = time.time() + lifespan_seconds
     while True:
         for c in range(clustersize):
             sleep(random.randrange(taskinterval))
@@ -22,10 +26,18 @@ def emulation_loop(workflows, clustersize, taskinterval, taskgroupinterval, extr
             print(workflows[index].display)
             try:
                 workflows[index].action(extra)
+            except KeyboardInterrupt:
+                print('Keyboard interrupt detected, shutting down')
+                return
             except:
                 print('')
                 print("Workflow {0} failed".format(workflows[index].display))
                 print(traceback.format_exc())
+                print("Trying browser restart")
+                WebDriverHelper().stop_browser()
+            if not lifespan_seconds == 0 and time.time() >= t_end:
+                print("Finishing workflows due to time out")
+                return
 
         sleep(random.randrange(taskgroupinterval))
 
@@ -49,7 +61,7 @@ def load_module(root, file):
     return getattr(workflow_module, 'load')()
 
 
-def run(clustersize, taskinterval, taskgroupinterval, extra):
+def run(clustersize, taskinterval, taskgroupinterval, lifespan_seconds, extra):
     random.seed()
     workflows = import_workflows()
 
@@ -62,7 +74,7 @@ def run(clustersize, taskinterval, taskgroupinterval, extra):
     signal.signal(signal.SIGTERM, signal_handler)
 
     emulation_loop(workflows=workflows, clustersize=clustersize, taskinterval=taskinterval,
-                    taskgroupinterval=taskgroupinterval, extra=extra)
+                    taskgroupinterval=taskgroupinterval, lifespan_seconds=lifespan_seconds, extra=extra)
 
 
 if __name__ == '__main__':
@@ -70,6 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('--clustersize', type=int, default=TASK_CLUSTER_COUNT)
     parser.add_argument('--taskinterval', type=int, default=TASK_INTERVAL_SECONDS)
     parser.add_argument('--taskgroupinterval', type=int, default=GROUPING_INTERVAL_SECONDS)
+    parser.add_argument('--stopafter', type=int, default=HUMAN_LIFESPAN_SECONDS)
     parser.add_argument('--extra', nargs='*', default=EXTRA_DEFAULTS)
     args = parser.parse_args()
 
@@ -78,6 +91,7 @@ if __name__ == '__main__':
             clustersize=args.clustersize,
             taskinterval=args.taskinterval,
             taskgroupinterval=args.taskgroupinterval,
+            lifespan_seconds=args.stopafter,
             extra=args.extra
         )
     except KeyboardInterrupt:

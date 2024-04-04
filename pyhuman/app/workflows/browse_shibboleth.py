@@ -26,15 +26,30 @@ class ShibbolethBrowse(BaseWorkflow):
 
     def __init__(self, driver, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
+        self.username=None
+        self.password=None
 
-        self.input_wait_time = input_wait_time
 
 
 
     def action(self, extra=None):
+        if self.username is None:
+            self.get_creds(extra)
         self.sign_in()
 
     """ PRIVATE """
+
+    def get_creds(self, extra=None):
+        self.username='jdh'
+        self.password='jdhpass'
+        
+        passfile=None
+        if len(extra)==2:
+            if extra[0] == "passfile":
+                with open(extra[1]) as f:
+                    self.username = f.readline().strip()
+                    self.password = f.readline().strip()
+
 
     def sign_in(self):
         # Navigate to youtube
@@ -43,23 +58,23 @@ class ShibbolethBrowse(BaseWorkflow):
 
 
         try:
-            print("... Trying to enter username 'jdh'")
+            print(f"... Trying to enter username '{self.username}'")
 
             search_element = self.driver.driver.find_element(By.ID, 'username') # username
             if search_element is None:
                 print("... Could not find username field")
                 return
 
-            search_element.send_keys('jdh')
+            search_element.send_keys(self.username)
             sleep(1)
-            print("... Trying to enter password 'jdhpass'")
+            print(f"... Trying to enter password '{self.password}'")
 
             search_element = self.driver.driver.find_element(By.ID, 'password') # password
             if search_element is None:
                 print("... Could not find username field")
                 return
 
-            search_element.send_keys('jdhpass')
+            search_element.send_keys(self.password)
 
             sleep(1)
             print("... Trying to click login")
@@ -90,7 +105,7 @@ class ShibbolethBrowse(BaseWorkflow):
             print(f"... Login failed with: {search_element.text}")
 
         
-        if random.random() < 0.8:
+        if random.random() < 0.2:
             print("... Decided to log out")
             search_element = self.driver.driver.find_element(By.ID, 'logout') # logout button
             if search_element is None:
