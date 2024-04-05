@@ -4,6 +4,7 @@ import urllib.request
 import json
 import random
 import requests
+import tempfile
 from bs4 import BeautifulSoup
 from random import choice
 from time import sleep
@@ -20,7 +21,6 @@ DEFAULT_INPUT_WAIT_TIME = 2
 def load():
     return DownloadFiles()
 
-
 class DownloadFiles(BaseWorkflow):
 
     def __init__(self, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
@@ -35,7 +35,7 @@ class DownloadFiles(BaseWorkflow):
 
     def _download_files(self):
         random_function_selector = [self._download_xkcd, self._download_wikipedia, self._download_nist]
-        directory = os.path.join(os.path.expanduser("~"), "Downloads")
+        directory = tempfile.gettempdir()
         random.choice(random_function_selector)(directory)
         sleep(self.input_wait_time)
 

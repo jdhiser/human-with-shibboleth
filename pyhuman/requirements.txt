@@ -8,6 +8,7 @@ idna
 pyautogui
 requests
 selenium<=4.9.1
+temp
 urllib3
 webdriver-manager
 beautifulsoup4

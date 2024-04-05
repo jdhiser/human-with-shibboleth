@@ -75,9 +75,15 @@ class GoogleSearch(BaseWorkflow):
         # Click through search result pages
         print(".... Browsing search results")
         for _ in range(0,random.randint(0,MAX_PAGES)):
-            next_button = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
-            ActionChains(self.driver.driver).move_to_element(next_button).click(next_button).perform()
+
+            # google doesn't have a next button anymore.  just infinit scroll
+            #next_button = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
+            #ActionChains(self.driver.driver).move_to_element(next_button).click(next_button).perform()
+
+            self.driver.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
             sleep(DEFAULT_WAIT_TIME)
+
+
 
     def _google_search(self, random_search):
         print(".... Googling:", random_search.rstrip())
