@@ -21,7 +21,7 @@ class WebDriverHelper(BaseDriverHelper):
     @property
     def driver(self):
         if self._driver == None:
-            self._driver = webdriver.Chrome(self._driver_path, options=self.options)
+            self._driver = webdriver.Chrome(options=self.options)
         return self._driver
 
     def stop_browser(self):
