@@ -92,24 +92,19 @@ class MoodleBrowse(BaseWorkflow):
 
         print("... Checking that secure page loaded")
 
-        search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p') # main body paragraph
+        search_element = self.driver.driver.find_element(By.XPATH, "//h1[text()='Moodle for Castle']") # 
         if search_element is None:
-            print("... Could not find body paragraph of secured page")
+            print("... Could not find Moodle welcome text element")
             return
 
-        if 'example paragraph for a secure directory.' in search_element.text:
-            print("... Login successful!")
+        if 'oodle for Castl' in search_element.text:
+            print(f"... Login successful with: {search_element.text}")
         else:
             print(f"... Login failed with: {search_element.text}")
 
         
         if random.random() < 0.2:
             print("... Decided to log out")
-            search_element = self.driver.driver.find_element(By.ID, 'logout') # logout button
-            if search_element is None:
-                print("... Could not find logout link")
-                return
-            ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
             print("... Stopping browser to force logout")
             self.driver.stop_browser() # restart browser for security!

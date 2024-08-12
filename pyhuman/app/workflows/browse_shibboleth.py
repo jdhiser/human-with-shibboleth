@@ -97,20 +97,24 @@ class ShibbolethBrowse(BaseWorkflow):
             print("... Could not find body paragraph of secured page")
             return
 
-        if 'example paragraph for a secure directory.' in search_element.text:
-            print("... Login successful!")
+        if 'xample paragraph for a secure director' in search_element.text:
+            print(f"... Login successful with: '{search_element.text}'")
         else:
             print(f"... Login failed with: {search_element.text}")
 
         
         if random.random() < 0.2:
-            print("... Decided to log out")
-            search_element = self.driver.driver.find_element(By.ID, 'logout') # logout button
-            if search_element is None:
-                print("... Could not find logout link")
-                return
-            ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+            print("... Decided to log out")
+            try:
+                search_element = self.driver.driver.find_element(By.ID, 'logout') # logout button
+            except:
+                pass
+            else:
+                if search_element is None:
+                    print("... Could not find logout link")
+                else:
+                    ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
             print("... Stopping browser to force logout")
             self.driver.stop_browser() # restart browser for security!
         else:
