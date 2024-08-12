@@ -2,6 +2,7 @@ import os
 import sys
 import zipfile
 import tarfile
+import traceback
 
 from importlib import import_module
 
@@ -50,6 +51,7 @@ class HumanService(BaseService):
             await self.data_svc.store(Workflow(name=workflow_name, description=workflow_description, file=workflow_file))
         except Exception as e:
             self.log.error('Error loading extension=%s, %s' % (module_path, e))
+            self.log.error('%s' % (traceback.format_exc()))
 
     async def _create_windows_archive(self, payload_path, behaviors, name):
         file_name = name + '.zip'

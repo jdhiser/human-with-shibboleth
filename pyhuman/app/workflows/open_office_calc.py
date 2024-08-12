@@ -1,6 +1,5 @@
 import os
 import random
-import pyautogui
 from lorem.text import TextLorem
 from time import sleep
 from ..utility.base_workflow import BaseWorkflow
@@ -22,6 +21,7 @@ class OpenOfficeCalc(BaseWorkflow):
         self.open_office_path = open_office_path
 
     def action(self, extra=None):
+        import pyautogui
         self._create_spreadsheet()
 
     def _create_spreadsheet(self):
