@@ -8,8 +8,8 @@ from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 
-WORKFLOW_NAME = 'ShibbolethBrowser'
-WORKFLOW_DESCRIPTION = 'Browse a website secured by Shibboleth'
+WORKFLOW_NAME = 'Moodle'
+WORKFLOW_DESCRIPTION = 'Interact with Moodle'
 
 DEFAULT_INPUT_WAIT_TIME = 2
 MIN_WAIT_TIME = 2 # Minimum amount of time to wait after searching, in seconds
@@ -17,10 +17,10 @@ MAX_WAIT_TIME = 5 # Maximum amount of time to wait after searching, in seconds
 
 def load():
     driver = WebDriverHelper()
-    return ShibbolethBrowse(driver=driver)
+    return MoodleBrowse(driver=driver)
 
 
-class ShibbolethBrowse(BaseWorkflow):
+class MoodleBrowse(BaseWorkflow):
 
     def __init__(self, driver, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
@@ -51,7 +51,7 @@ class ShibbolethBrowse(BaseWorkflow):
 
     def sign_in(self):
         # Navigate to youtube
-        self.driver.driver.get('https://service.castle.os/secure/index.html')
+        self.driver.driver.get('https://service.castle.os/moodle')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
 
