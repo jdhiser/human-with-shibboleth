@@ -45,10 +45,19 @@ class MoodleBrowse(BaseWorkflow):
         self.fake = Faker()
         self.fake.add_provider(person)
 
+
     def action(self, extra=None):
-        if self.username is None:
-            self.get_creds(extra)
-        self.shib_sign_in()
+        self.get_creds(extra)
+        err = self.shib_sign_in()
+        err = err or self.moodle_workflow()
+
+        if err or random.random() < 0.2:
+            print("... Decided to log out")
+            sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+            print("... Stopping browser to force logout")
+            self.driver.stop_browser() # restart browser for security!
+        else:
+            print("... Decided not to log out of moodle")
 
     # PRIVATE
 
@@ -69,9 +78,9 @@ class MoodleBrowse(BaseWorkflow):
                 i += 1
 
 
-    def shib_sign_in(self):
+    def shib_sign_in(self) -> bool:
         # Navigate to moodle
-        self.driver.driver.get('https://service.castle.os/moodle')
+        self.driver.driver.get('https://service.castle.os/moodle/auth/shibboleth/index.php')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
 
@@ -81,7 +90,7 @@ class MoodleBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'username') # username
             if search_element is None:
                 print("... Could not find username field")
-                return
+                return True
 
             search_element.send_keys(self.username)
             sleep(1)
@@ -90,7 +99,7 @@ class MoodleBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'password') # password
             if search_element is None:
                 print("... Could not find username field")
-                return
+                return True
 
             search_element.send_keys(self.password)
 
@@ -101,7 +110,7 @@ class MoodleBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.TAG_NAME, 'button') # login button
             if search_element is None:
                 print("... Could not find login button")
-                return
+                return True
 
             ActionChains(self.driver.driver).move_to_element(
                     search_element).click(search_element).perform()
@@ -110,165 +119,85 @@ class MoodleBrowse(BaseWorkflow):
         except:
             print("... No login fields present, assuming we're already logged in")
 
-        print("... Checking that secure page loaded")
+        print("... Checking that Moodle Dashboard loaded")
+
+
+        search_str = f"Hi, {self.username}"
+        search_element = self.driver.driver.find_element(By.XPATH,
+                f"//*[contains(text(),'{search_str}')]")
+        if search_element is None:
+            print("... Could not find Moodle Dashboard text element")
+            return True
+
+        if not search_str in search_element.text:
+            print(f"... Login failed with: {search_str} not in {search_element.text}")
+            return True
+        print(f"... Login successful with: {search_element.text}")
+        return False
+
+
+    def enrol_in_course(self) -> bool:
+        self.driver.driver.get('https://service.castle.os/moodle/?redirect=0')
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+
+        err = self.find_text_and_click('Special Topics: AI-Powered Cybersecurity')
+        err = err or self.find_text_and_click('Enrol me in this course')
+        err = err or self.find_id_and_click('id_submitbutton')
+
+        return err
+
+    def moodle_workflow(self) -> bool:
+        self.driver.driver.get('https://service.castle.os/moodle/my/courses.php')
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+
+        search_str = "not enrolled in any course"
+        search_elements = self.driver.driver.find_elements(By.XPATH,
+                f"//*[contains(text(),'{search_str}')]")
+
+        err = False
+        print(f"{search_elements}")
+        if len(search_elements) != 0:
+            print(" ... Enrolling in a course")
+            err = self.enrol_in_course()
+        else:
+            print(" ... already enrolled in a course!")
+
+        err = err or self.browse_course()
+        return err
+
+
+    def browse_course(self) -> bool:
+        return False
+
+
+    def find_text_and_click(self, to_find: str) -> bool:
 
         search_element = self.driver.driver.find_element(By.XPATH,
-                "//h1[text()='Moodle for Castle']")
-        if search_element is None:
-            print("... Could not find Moodle welcome text element")
-            return
+                f"//*[contains(text(),'{to_find}')]")
 
-        if 'oodle for Castl' in search_element.text:
-            print(f"... Login successful with: {search_element.text}")
-        else:
-            print(f"... Login failed with: {search_element.text}")
-
-        err = self.moodle_workflow()
-
-        if err or random.random() < 0.2:
-            print("... Decided to log out")
-            sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-            print("... Stopping browser to force logout")
-            self.driver.stop_browser() # restart browser for security!
-        else:
-            print("... Decided not to log out of moodle")
-
-    def moodle_workflow(self):
-
-        search_element = self.driver.driver.find_element(By.XPATH, "//a[text()='Log in']")
-        if search_element is None:
-            print("... Could not find log in to moodle button")
+        if search_element is None or not to_find in search_element.text:
+            print(f" ... could not find text '{to_find}'")
             return True
-
-        ActionChains(self.driver.driver).move_to_element(
-                search_element).click(search_element).perform()
-        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-
-        if self.first_time:
-            if self.moodle_login(self.adminname, self.adminpass):
-                return True
-            if self.add_user(self.username, self.password):
-                return True
-            self.first_time=False
-            if self.moodle_logout():  # log out of admin account.
-                return True
-
-
-        return False
-
-    def moodle_login(self,name,passwd):
-        search_element = self.driver.driver.find_element(By.ID, 'username') # username
-        if search_element is None:
-            print("... Could not find username field")
-            return True
-
-        search_element.send_keys(name)
-        sleep(1)
-        print(f"... Trying to enter password '{passwd}'")
-
-        search_element = self.driver.driver.find_element(By.ID, 'password') # password
-        if search_element is None:
-            print("... Could not find username field")
-            return True
-
-        search_element.send_keys(passwd)
-
-        sleep(1)
-        print("... Trying to click login")
 
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-        search_element = self.driver.driver.find_element(By.ID, 'loginbtn') # login button
-        if search_element is None:
-            print("... Could not find login button")
-            return True
-
-        ActionChains(self.driver.driver).move_to_element(
-                search_element).click(search_element).perform()
-        return False
-
-
-    def moodle_logout(self):
-
-        # logout dropdown
-        print("... Trying to click user menu")
-        search_element = self.driver.driver.find_element(By.ID, 'user-menu-toggle')
-        if search_element is None:
-            print("... Could not find user menu button")
-            return True
-
+        print(f"... Trying to click {to_find}")
         ActionChains(self.driver.driver).move_to_element(
                 search_element).click(search_element).perform()
 
-        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-
-        print("... Trying to click log out item in user menu")
-        search_element = self.driver.driver.find_element(By.XPATH, "//a[contains(@href,'logout')]")
-
-        if search_element is None:
-            print("... Could not find log out button in user menu")
-            return True
-        # print(f"Search element href is {search_element.getAttribute('href')}")
-
-        sleep(3)
-        ActionChains(self.driver.driver).click(search_element).perform()
         return False
 
 
-    def add_user(self,name,passwd):
-        self.driver.driver.get('https://service.castle.os/moodle/admin/user.php')
-        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
-        print("... Checking if user already exists")
-        search_element = self.driver.driver.find_elements(
-                By.XPATH, f"//td[text()='{name}@castle.os']")
-        if len(search_element) == 0:
-            print("... Could not find user account, adding it now.")
-            return self.add_user_account(name,passwd)
-        return False
+    def find_id_and_click(self, to_find: str) -> bool:
+        search_element = self.driver.driver.find_element(By.ID, to_find)
 
-    def add_user_account(self,name,passwd):
-        print(f"... Adding new user {name}.")
-        self.driver.driver.get('https://service.castle.os/moodle/user/editadvanced.php?id=-1')
-
-        if self.enter_text("id_username", name, "user name"):
-            return True
-
-        search_element = self.driver.driver.find_element(By.XPATH, "//em[text()='Click to enter text']")
         if search_element is None:
-            print("... Could not find new password field")
+            print(f" ... could not find button id='{to_find}'")
             return True
+
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+        print(f"... Trying to click button id={to_find}")
         ActionChains(self.driver.driver).move_to_element(
                 search_element).click(search_element).perform()
-        if self.enter_text("id_newpassword", passwd, "password"):
-            return True
-        if self.enter_text("id_firstname", self.fake.first_name(), "first name"):
-            return True
-        if self.enter_text("id_lastname", self.fake.last_name(), "last name"):
-            return True
-        if self.enter_text("id_email", name+"@castle.os", "email"):
-            return True
-        if self.enter_text("id_description_editor_ifr", self.fake.text(), "description"):
-            return True
-        search_element = self.driver.driver.find_element(By.ID, "id_submitbutton")
-        if search_element is None:
-            print("... Could not find submit button")
-            return True
-        print("... Found submit button")
-        ActionChains(self.driver.driver).move_to_element(
-                search_element).click(search_element).perform()
-        print("... Completed user setup.")
-        sleep(30)
-        return False
 
-    def enter_text(self, id_to_search_for, text_to_enter, msg_text):
-        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-        search_element = self.driver.driver.find_element(By.ID, id_to_search_for)
-
-        if search_element is None:
-            print(f"... Could not find {msg_text}")
-            return True
-
-        print(f"... Found {msg_text}")
-        ActionChains(self.driver.driver).move_to_element(search_element).perform()
-        search_element.send_keys(text_to_enter)
         return False
