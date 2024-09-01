@@ -18,6 +18,7 @@ from faker.providers import person
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from ..utility.base_workflow import BaseWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 
@@ -58,6 +59,7 @@ class MoodleBrowse(BaseWorkflow):
             self.driver.stop_browser() # restart browser for security!
         else:
             print("... Decided not to log out of moodle")
+        print("Completed moodle workflow")
 
     # PRIVATE
 
@@ -122,15 +124,24 @@ class MoodleBrowse(BaseWorkflow):
         print("... Checking that Moodle Dashboard loaded")
 
 
-        search_str = f"Hi, {self.username}"
-        search_element = self.driver.driver.find_element(By.XPATH,
-                f"//*[contains(text(),'{search_str}')]")
-        if search_element is None:
+        search_str1 = f"Hi, {self.username}"
+        search_element1 = self.driver.driver.find_elements(By.XPATH,
+                f"//*[contains(text(),'{search_str1}')]")
+        search_str2 = "Dashboard"
+        search_element2 = self.driver.driver.find_elements(By.XPATH,
+                f"//h1[contains(text(),'{search_str2}')]")
+        if len(search_element1) == 0 and len(search_element2) == 0:
             print("... Could not find Moodle Dashboard text element")
             return True
 
-        if not search_str in search_element.text:
-            print(f"... Login failed with: {search_str} not in {search_element.text}")
+        if len(search_element1) == 0:
+            search_element=search_element2[0]
+        else:
+            search_element=search_element1[0]
+
+        if not search_str1 in search_element.text and not search_str2 in search_element.text:
+            print(f"... Login failed with: {search_str1} "
+                    f"and {search_str2} not in {search_element.text}")
             return True
         print(f"... Login successful with: {search_element.text}")
         return False
@@ -155,44 +166,132 @@ class MoodleBrowse(BaseWorkflow):
                 f"//*[contains(text(),'{search_str}')]")
 
         err = False
-        print(f"{search_elements}")
         if len(search_elements) != 0:
-            print(" ... Enrolling in a course")
+            print("... Enrolling in a course")
             err = self.enrol_in_course()
         else:
-            print(" ... already enrolled in a course!")
+            print("... already enrolled in a course!")
 
         err = err or self.browse_course()
         return err
 
 
     def browse_course(self) -> bool:
-        return False
+        err = False
+        err = err or self.find_link_and_click(
+                'https://service.castle.os/moodle/course/view.php?id=2')
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+        # go straight to course
+        # print(f"Current url is {self.driver.driver.current_url}")
+        #self.driver.driver.get('https://service.castle.os/moodle/course/view.php?id=2')
+        #sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+
+        pages_to_view = random.randint(1,3)
+
+        for _ in range(pages_to_view):
+            week_choice = random.randint(0,4)
+            match week_choice:
+                case 0: # Announcements
+                    err = err or self.find_text_and_click('Announcements')
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                    print("... Going back to courses page")
+                    self.driver.driver.back()
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                case 1: # Week 1
+                    err = err or self.find_text_and_click('cgc talk')
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                    err = err or self.browse_moodle_pdf()
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                    print("... Going back to courses page")
+                    self.driver.driver.back()
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                case 2: # Week 2
+                    err = err or self.find_text_and_click('RAMPART slides', link_type='a')
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                case 3: # Week 3
+                    err = err or self.find_text_and_click('week 3 lecture')
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                    err = err or self.browse_moodle_pdf()
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                    print("... Going back to courses page")
+                    self.driver.driver.back()
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                case 4: # Week 4
+                    err = err or self.find_text_and_click('caldera slides', link_type='a')
+                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+
+        return err
+
+    def browse_moodle_pdf(self):
+        err = False
+        if False:
+            sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+            viewer = self.driver.driver.find_element(By.XPATH, "//html/body/embed")
+            for _ in range(random.randint(0,14)):
+
+                choice = random.randint(0,2)
+                choice = 0
+                match choice:
+                    case 0:
+                        print("... Trying page down key")
+                        viewer.send_keys(Keys.PAGE_DOWN)
+                        self.driver.driver.execute_script("window.scrollTo(0,250)")
+                        sleep(10)
+                    case 1:
+                        print("... Trying page up key")
+                        viewer.send_keys(Keys.PAGE_UP)
+                    case 2:
+                        print("... Trying home key")
+                        viewer.send_keys(Keys.HOME)
+                    case 3:
+                        print("... Trying end key")
+                        viewer.send_keys(Keys.END)
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+        return err
 
 
-    def find_text_and_click(self, to_find: str) -> bool:
+    def find_link_and_click(self, to_find: str, link_type:str = 'a' ) -> bool:
 
+        print(f"... Trying to find link to {to_find}")
         search_element = self.driver.driver.find_element(By.XPATH,
-                f"//*[contains(text(),'{to_find}')]")
+                f"//{link_type}[contains(@href,'{to_find}')]")
 
-        if search_element is None or not to_find in search_element.text:
-            print(f" ... could not find text '{to_find}'")
+        if search_element is None:
+            print(f"... Could not find link to {to_find}.")
             return True
 
-        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-        print(f"... Trying to click {to_find}")
+        text = search_element.text
+        print(f"... Clicking {text}.")
         ActionChains(self.driver.driver).move_to_element(
                 search_element).click(search_element).perform()
+        print(f"... Successful click of {text}.")
 
         return False
 
+    def find_text_and_click(self, to_find: str, link_type:str = '*' ) -> bool:
+
+        print(f"... Trying to click {to_find}")
+        search_element = self.driver.driver.find_element(By.XPATH,
+                f"//{link_type}[contains(text(),'{to_find}')]")
+
+        if search_element is None or not to_find in search_element.text:
+            print(f"... Could not find {to_find}.")
+            return True
+
+        text = search_element.text
+        print(f"... Clicking {text}.")
+        ActionChains(self.driver.driver).move_to_element(
+                search_element).click(search_element).perform()
+        print(f"... Successful click of {text}.")
+
+        return False
 
 
     def find_id_and_click(self, to_find: str) -> bool:
         search_element = self.driver.driver.find_element(By.ID, to_find)
 
         if search_element is None:
-            print(f" ... could not find button id='{to_find}'")
+            print(f"### Could not find button id='{to_find}'")
             return True
 
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
