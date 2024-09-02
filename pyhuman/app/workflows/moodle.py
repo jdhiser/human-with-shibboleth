@@ -52,7 +52,7 @@ class MoodleBrowse(BaseWorkflow):
         err = self.shib_sign_in()
         err = err or self.moodle_workflow()
 
-        if err or random.random() < 0.2:
+        if False: # err or random.random() < 0.2:
             print("... Decided to log out")
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
             print("... Stopping browser to force logout")
@@ -187,9 +187,11 @@ class MoodleBrowse(BaseWorkflow):
         #sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         pages_to_view = random.randint(1,3)
+        pages_to_view = 2
+        choices = [  1, 2 ]
 
-        for _ in range(pages_to_view):
-            week_choice = random.randint(0,4)
+        for i in range(pages_to_view):
+            week_choice = choices [i ]  # random.randint(0,4)
             match week_choice:
                 case 0: # Announcements
                     err = err or self.find_text_and_click('Announcements')

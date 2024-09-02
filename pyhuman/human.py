@@ -19,10 +19,12 @@ EXTRA_DEFAULTS = []
 
 def emulation_loop(workflows, clustersize, taskinterval, taskgroupinterval, lifespan_seconds, extra):
     t_end = time.time() + lifespan_seconds
+    index = 1 
     while True:
         for c in range(clustersize):
             sleep(random.randrange(taskinterval))
-            index = random.randrange(len(workflows))
+            #index = random.randrange(len(workflows))
+            index = 1 - index
             print(workflows[index].display)
             try:
                 workflows[index].action(extra)
