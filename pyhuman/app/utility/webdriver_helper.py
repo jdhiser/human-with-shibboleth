@@ -15,7 +15,7 @@ class WebDriverHelper(BaseDriverHelper):
 
     def __init__(self):
         super().__init__(name=DRIVER_NAME)
-        self._driver_path = ChromeDriverManager().install()
+        #self._driver_path = ChromeDriverManager().install()
         self._driver = None
 
     @property
