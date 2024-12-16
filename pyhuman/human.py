@@ -21,22 +21,34 @@ def emulation_loop(workflows, clustersize, taskinterval, taskgroupinterval, life
     t_end = time.time() + lifespan_seconds
     while True:
         for c in range(clustersize):
+            err = None
             sleep(random.randrange(taskinterval))
             index = random.randrange(len(workflows))
             print(workflows[index].display)
             try:
-                workflows[index].action(extra)
+                workflows[index].log_workflow_start()
+                err = workflows[index].action(extra)
+                if err:
+                    workflows[index].log_workflow_error()
+                else:
+                    workflows[index].log_workflow_success()
             except KeyboardInterrupt:
                 print('Keyboard interrupt detected, shutting down')
                 return
             except:
+                err = True
+                workflows[index].log_workflow_error(message="Workflow {0} failed".format(workflows[index].display))
                 print('')
                 print("Workflow {0} failed".format(workflows[index].display))
                 print(traceback.format_exc())
                 print("Trying browser restart")
                 WebDriverHelper().stop_browser()
+
             if not lifespan_seconds == 0 and time.time() >= t_end:
-                print("Finishing workflows due to time out")
+                if err is None:
+                    # todo: last step (if any) should be marked as success too
+                    workflows[index].log_workflow_success()
+                    print("Finishing workflows due to time out")
                 return
 
         sleep(random.randrange(taskgroupinterval))
@@ -62,7 +74,6 @@ def load_module(root, file):
 
 
 def run(clustersize, taskinterval, taskgroupinterval, lifespan_seconds, extra):
-    random.seed()
     workflows = import_workflows()
 
     def signal_handler(sig, frame):
@@ -84,9 +95,11 @@ if __name__ == '__main__':
     parser.add_argument('--taskgroupinterval', type=int, default=GROUPING_INTERVAL_SECONDS)
     parser.add_argument('--stopafter', type=int, default=HUMAN_LIFESPAN_SECONDS)
     parser.add_argument('--extra', nargs='*', default=EXTRA_DEFAULTS)
+    parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
 
     try:
+        random.seed(args.seed)
         run(
             clustersize=args.clustersize,
             taskinterval=args.taskinterval,
