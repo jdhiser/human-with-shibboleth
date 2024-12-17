@@ -33,7 +33,8 @@ class ShibbolethBrowse(BaseWorkflow):
     def action(self, extra=None):
         if self.username is None:
             self.get_creds(extra)
-        self.sign_in()
+        err = self.sign_in()
+        return err
 
     """ PRIVATE """
 
@@ -50,6 +51,8 @@ class ShibbolethBrowse(BaseWorkflow):
 
 
     def sign_in(self):
+        err = True
+
         # Navigate to youtube
         self.driver.driver.get('https://service.castle.os/secure/index.html')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
@@ -61,27 +64,32 @@ class ShibbolethBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'username') # username
             if search_element is None:
                 print("... Could not find username field")
-                return
+                return err
 
             search_element.send_keys(self.username)
             sleep(1)
             print(f"... Trying to enter password '{self.password}'")
 
+            self.log_step_start("password")
             search_element = self.driver.driver.find_element(By.ID, 'password') # password
             if search_element is None:
                 print("... Could not find username field")
-                return
-
+                self.log_step_error("password", message="could not find username field")
+                return err
             search_element.send_keys(self.password)
+            self.log_step_success("password")
 
             sleep(1)
+            self.log_step_start("login-button")
             print("... Trying to click login")
 
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
             search_element = self.driver.driver.find_element(By.TAG_NAME, 'button') # login button
             if search_element is None:
                 print("... Could not find login button")
-                return
+                self.log_step_error("login-button", message="could not find login button")
+                return err
+            self.log_step_success("login-button")
 
             ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
 
@@ -94,13 +102,15 @@ class ShibbolethBrowse(BaseWorkflow):
 
         search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p') # main body paragraph
         if search_element is None:
-            print("... Could not find body paragraph of secured page")
-            return
+            print("Could not find body paragraph of secured page")
+            return err
 
+        # Determine whether workflow succeeded
         if 'xample paragraph for a secure director' in search_element.text:
-            print(f"... Login successful with: '{search_element.text}'")
+            print(f"Login successful with: {search_element.text}")
+            err = False
         else:
-            print(f"... Login failed with: {search_element.text}")
+            print(f"Login failed with: {search_element.text}")
 
         
         if random.random() < 0.2:
@@ -120,6 +130,6 @@ class ShibbolethBrowse(BaseWorkflow):
         else:
             print("... Decided not to log out")
 
-        
+        return err
 
 
