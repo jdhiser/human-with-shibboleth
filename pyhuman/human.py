@@ -95,11 +95,15 @@ if __name__ == '__main__':
     parser.add_argument('--taskgroupinterval', type=int, default=GROUPING_INTERVAL_SECONDS)
     parser.add_argument('--stopafter', type=int, default=HUMAN_LIFESPAN_SECONDS)
     parser.add_argument('--extra', nargs='*', default=EXTRA_DEFAULTS)
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=None)
     args = parser.parse_args()
 
     try:
-        random.seed(args.seed)
+        if args.seed is not None:
+            random.seed(args.seed)
+        else:
+            random.seed()
+
         run(
             clustersize=args.clustersize,
             taskinterval=args.taskinterval,
