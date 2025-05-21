@@ -43,7 +43,7 @@ software_projects = cmds([
         ("./autogen.sh", r"configure"),
         ("./configure", r"config.status"),
         ("make -j", r"gcc .* -o htop "),
-        ("./htop --help", r"htop .* --no-color"),
+        ("./htop --help", r"-no-color"),
     ],
     [
         ("rm -rf jq*", r".*"),

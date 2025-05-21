@@ -115,7 +115,7 @@ class HumanTyperShell:
             typo_happened = False
 
             # 3% chance to inject a typo
-            if random.random() < 0.03:
+            if random.random() < 0.05:
                 typo_count = random.choice([1, 3])
 
                 # extra sleep for understanding your typo before fixing it.
@@ -164,7 +164,15 @@ class HumanTyperShell:
         except OSError:
             pass
         self.reader_thread.join(timeout=1)
-        os.close(self.master_fd)
+        try:
+            os.close(self.master_fd)
+        except OSError:
+            pass
+        try:
+            os.waitpid(self.child_pid, 0)
+        except ChildProcessError:
+            pass
+
 
 # Example usage
 if __name__ == "__main__":
