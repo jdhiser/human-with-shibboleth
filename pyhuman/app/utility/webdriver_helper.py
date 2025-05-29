@@ -14,32 +14,45 @@ DRIVER_NAME = 'ChromeWebDriver'
 
 class WebDriverHelper(BaseDriverHelper):
 
-
-
     def __init__(self):
         super().__init__(name=DRIVER_NAME)
         username = getpass.getuser()
-        user_tmp_dir = f"/tmp/chrome-profile-{username}"
-        cache_dir = os.path.join(user_tmp_dir, "wdm-cache")
-        os.makedirs(cache_dir, exist_ok=True)
 
-        # Force environment cache isolation
-        os.environ["WD_MANAGER_CACHE_PATH"] = cache_dir
-        os.environ["XDG_CACHE_HOME"] = os.path.join(user_tmp_dir, ".cache")
-        os.environ["XDG_CONFIG_HOME"] = os.path.join(user_tmp_dir, ".config")
+        home_dir = os.path.expanduser(f"~{username}")
+        use_tmp = not os.path.isdir(home_dir)
 
-        # Set up Chrome options
+        # Always create base Chrome options
         self.options = webdriver.ChromeOptions()
-        self.options.add_argument(f'--user-data-dir={user_tmp_dir}')
         self.options.add_argument('--disable-gpu')
         self.options.add_argument('--ignore-certificate-errors')
         self.options.add_argument('--start-maximized')
         self.options.add_argument('--disable-infobars')
 
-        # Manually create cache manager
-        cache_manager = DriverCacheManager(cache_dir)
-        self._driver_path = ChromeDriverManager(cache_manager=cache_manager).install()
+        cache_manager = None  # default
 
+        if use_tmp:
+            base_dir = f"/tmp/chrome-profile-{username}"
+            cache_dir = os.path.join(base_dir, "wdm-cache")
+            xdg_cache_dir = os.path.join(base_dir, ".cache")
+            xdg_config_dir = os.path.join(base_dir, ".config")
+
+            # Create necessary directories
+            os.makedirs(cache_dir, exist_ok=True)
+            os.makedirs(xdg_cache_dir, exist_ok=True)
+            os.makedirs(xdg_config_dir, exist_ok=True)
+
+            # Set environment variables to isolate from $HOME
+            os.environ["WD_MANAGER_CACHE_PATH"] = cache_dir
+            os.environ["XDG_CACHE_HOME"] = xdg_cache_dir
+            os.environ["XDG_CONFIG_HOME"] = xdg_config_dir
+
+            # Add user-data-dir argument if use_tmp 
+            self.options.add_argument(f'--user-data-dir={base_dir}')
+
+            # Use custom cache manager
+            cache_manager = DriverCacheManager(cache_dir)
+
+        self._driver_path = ChromeDriverManager(cache_manager=cache_manager).install()
         self._driver = None
 
     @property
