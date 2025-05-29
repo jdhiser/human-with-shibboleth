@@ -21,6 +21,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from ..utility.base_workflow import BaseWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 WORKFLOW_NAME = 'Moodle'
 WORKFLOW_DESCRIPTION = 'Interact with Moodle'
@@ -84,7 +87,7 @@ class MoodleBrowse(BaseWorkflow):
     def shib_sign_in(self) -> bool:
 
         # Navigate to moodle
-        self.driver.driver.get('https://service.castle.os/moodle/auth/shibboleth/index.php')
+        self.driver.driver.get('https://service.project1.os/moodle/auth/shibboleth/index.php')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
 
@@ -133,36 +136,61 @@ class MoodleBrowse(BaseWorkflow):
 
         self.log_step_start("Dashboard")
 
-        search_str1 = f"Hi, {self.username}"
-        search_element1 = self.driver.driver.find_elements(By.XPATH,
-                f"//*[contains(text(),'{search_str1}')]")
-        search_str2 = "Dashboard"
-        search_element2 = self.driver.driver.find_elements(By.XPATH,
-                f"//h1[contains(text(),'{search_str2}')]")
-        if len(search_element1) == 0 and len(search_element2) == 0:
-            print("... Could not find Moodle Dashboard text element")
-            self.log_step_error("Dashboard")
-            return True
+        # Gather full visible text of the page
+        page_text = self.driver.driver.find_element(By.TAG_NAME, "body").text
 
-        if len(search_element1) == 0:
-            search_element=search_element2[0]
-        else:
-            search_element=search_element1[0]
+        # Define acceptable matches
+        expected_strings = [
+                f"Welcome, {self.username}",
+                f"Hi, {self.username}",
+                "Dashboard"
+                ]
 
-        if not search_str1 in search_element.text and not search_str2 in search_element.text:
-            print(f"... Login failed with: {search_str1} "
-                    f"and {search_str2} not in {search_element.text}")
-            self.log_step_error("Dashboard")
-            return True
-        print(f"... Login successful with: {search_element.text}")
-        self.log_step_success("Dashboard")
-        return False
+        # Check if any expected string is present
+        for s in expected_strings:
+            if s in page_text:
+                print(f"... Login successful with match: {s}")
+                self.log_step_success("Dashboard")
+                return False
+
+        # No match found
+        print("... Could not find Moodle Dashboard text element")
+        self.log_step_error("Dashboard")
+        return True
+
+
+#        self.log_step_start("Dashboard")
+#
+#        search_str1 = f"Welcome, {self.username}"
+#        search_element1 = self.driver.driver.find_elements(By.XPATH,
+#                f"//*[contains(text(),'{search_str1}')]")
+#        search_str2 = "Dashboard"
+#        search_element2 = self.driver.driver.find_elements(By.XPATH,
+#                f"//h1[contains(text(),'{search_str2}')]")
+#        if len(search_element1) == 0 and len(search_element2) == 0:
+#            print("... Could not find Moodle Dashboard text element")
+#            self.log_step_error("Dashboard")
+#            return True
+#
+#        if len(search_element1) == 0:
+#            search_element=search_element2[0]
+#        else:
+#            search_element=search_element1[0]
+#
+#        if not search_str1 in search_element.text and not search_str2 in search_element.text:
+#            print(f"... Login failed with: {search_str1} "
+#                    f"and {search_str2} not in {search_element.text}")
+#            self.log_step_error("Dashboard")
+#            return True
+#        print(f"... Login successful with: {search_element.text}")
+#        self.log_step_success("Dashboard")
+#        return False
 
 
     def enrol_in_course(self) -> bool:
         self.log_step_start("CourseEnroll")
 
-        self.driver.driver.get('https://service.castle.os/moodle/?redirect=0')
+        self.driver.driver.get('https://service.project1.os/moodle/?redirect=0')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         err = self.find_text_and_click('Special Topics: AI-Powered Cybersecurity')
@@ -177,7 +205,7 @@ class MoodleBrowse(BaseWorkflow):
         return err
 
     def moodle_workflow(self) -> bool:
-        self.driver.driver.get('https://service.castle.os/moodle/my/courses.php')
+        self.driver.driver.get('https://service.project1.os/moodle/my/courses.php')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         search_str = "not enrolled in any course"
@@ -198,12 +226,14 @@ class MoodleBrowse(BaseWorkflow):
     def browse_course(self) -> bool:
 
         err = False
+        # this might be the first time we've viewed this page, and moodle pops up a "got it"
+        # pop up to help a new user navigate.  click "got it"
         err = err or self.find_link_and_click(
-                'https://service.castle.os/moodle/course/view.php?id=2')
+                'https://service.project1.os/moodle/course/view.php?id=2')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
         # go straight to course
         # print(f"Current url is {self.driver.driver.current_url}")
-        #self.driver.driver.get('https://service.castle.os/moodle/course/view.php?id=2')
+        #self.driver.driver.get('https://service.project1.os/moodle/course/view.php?id=2')
         #sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         pages_to_view = random.randint(1,3)
@@ -214,7 +244,6 @@ class MoodleBrowse(BaseWorkflow):
                 case 0: # Announcements
                     self.log_step_start("BrowseCourse:Announcements")
                     err = err or self.find_text_and_click('Announcements')
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     print("... Going back to courses page")
                     self.driver.driver.back()
                     sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
@@ -225,9 +254,7 @@ class MoodleBrowse(BaseWorkflow):
                 case 1: # Week 1
                     self.log_step_start("BrowseCourse:CGC")
                     err = err or self.find_text_and_click('cgc talk')
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     err = err or self.browse_moodle_pdf()
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     print("... Going back to courses page")
                     self.driver.driver.back()
                     sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
@@ -238,7 +265,6 @@ class MoodleBrowse(BaseWorkflow):
                 case 2: # Week 2
                     self.log_step_start("BrowseCourse:RAMPART")
                     err = err or self.find_text_and_click('RAMPART slides', link_type='a')
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     if err:
                         self.log_step_error("BrowseCourse:RAMPART")
                     else:
@@ -246,9 +272,7 @@ class MoodleBrowse(BaseWorkflow):
                 case 3: # Week 3
                     self.log_step_start("BrowseCourse:Week3")
                     err = err or self.find_text_and_click('week 3 lecture')
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     err = err or self.browse_moodle_pdf()
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     print("... Going back to courses page")
                     self.driver.driver.back()
                     sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
@@ -259,7 +283,6 @@ class MoodleBrowse(BaseWorkflow):
                 case 4: # Week 4
                     self.log_step_start("BrowseCourse:Caldera")
                     err = err or self.find_text_and_click('caldera slides', link_type='a')
-                    sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     if err:
                         self.log_step_error("BrowseCourse:Caldera")
                     else:
@@ -300,23 +323,39 @@ class MoodleBrowse(BaseWorkflow):
         return err
 
 
-    def find_link_and_click(self, to_find: str, link_type:str = 'a' ) -> bool:
+    def find_link_and_click(self, to_find: str, link_type: str = 'a') -> bool:
+        print(f"... Trying to click link containing: {to_find}")
+        xpath = f"//{link_type}[contains(@href,'{to_find}')]"
 
-        print(f"... Trying to find link to {to_find}")
-        search_element = self.driver.driver.find_element(By.XPATH,
-                f"//{link_type}[contains(@href,'{to_find}')]")
+        retry = 0
+        while retry < 10:
+            try:
+                element = WebDriverWait(self.driver.driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, xpath))
+                        )
+                element.click()
+                print(f"... Clicked link: {element.text}")
+                return False
+            except Exception as e:
+                self.maybe_click_got_it()
+                retry += 1
+                sleep(1)  
+                pass
 
-        if search_element is None:
-            print(f"... Could not find link to {to_find}.")
-            return True
+        print(f"... Failed to click link '{to_find}'")
+        return True
 
-        text = search_element.text
-        print(f"... Clicking {text}.")
-        ActionChains(self.driver.driver).move_to_element(
-                search_element).click(search_element).perform()
-        print(f"... Successful click of {text}.")
+    def maybe_click_got_it(self):
+        buttons = self.driver.driver.find_elements(By.XPATH, "//button[@data-role='end']")
+        for button in buttons:
+            if "got it" in button.text.lower():
+                button.click()
+                print("... Clicked 'Got it'")
+                sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                break
+        else:
+            print("... No 'Got it' to click")
 
-        return False
 
     def find_text_and_click(self, to_find: str, link_type:str = '*' ) -> bool:
 
@@ -333,6 +372,7 @@ class MoodleBrowse(BaseWorkflow):
         ActionChains(self.driver.driver).move_to_element(
                 search_element).click(search_element).perform()
         print(f"... Successful click of {text}.")
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         return False
 
@@ -348,5 +388,6 @@ class MoodleBrowse(BaseWorkflow):
         print(f"... Trying to click button id={to_find}")
         ActionChains(self.driver.driver).move_to_element(
                 search_element).click(search_element).perform()
+        sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         return False
