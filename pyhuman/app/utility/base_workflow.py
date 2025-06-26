@@ -1,5 +1,6 @@
 from abc import abstractmethod
 
+
 class BaseWorkflow(object):
 
     @property
@@ -18,10 +19,8 @@ class BaseWorkflow(object):
     @abstractmethod
     def action(self, extra=None):
         pass
-    
+
     def cleanup(self):
         if self.driver is None:
             return
         self.driver.cleanup()
-
-

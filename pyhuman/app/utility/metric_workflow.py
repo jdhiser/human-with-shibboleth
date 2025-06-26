@@ -2,11 +2,13 @@ import json
 import logging
 import os
 import socket
+from abc import abstractmethod
 from datetime import datetime
-from base_workflow import BaseWorkflow
+from .base_workflow import BaseWorkflow
 
 # Configure the logger
 logging.basicConfig(level=logging.INFO, format='%(message)s')
+
 
 def get_local_hostname():
     """Retrieve the local hostname."""
@@ -21,7 +23,7 @@ class MetricWorkflow(BaseWorkflow):
 
     @abstractmethod
     def __init__(self, name, description, driver=None):
-        super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
+        super().__init__(name=name, description=description, driver=driver)
         self.integrity = 1
 
     def _log(self, message, step_name, status, integrity):
@@ -38,9 +40,9 @@ class MetricWorkflow(BaseWorkflow):
             self.integrity &= integrity
         valid_statuses = {"start", "success", "error"}
         if status not in valid_statuses:
-            raise ValueError(f"Invalid status: '{status}'. Valid statuses are {valid_statuses}.")
-    
-     
+            raise ValueError(
+                f"Invalid status: '{status}'. Valid statuses are {valid_statuses}.")
+
         timestamp = datetime.utcnow().isoformat()
         log_entry = {
             "timestamp": timestamp,
@@ -56,7 +58,7 @@ class MetricWorkflow(BaseWorkflow):
         # Add step_name only if it's provided
         if step_name is not None:
             log_entry["step_name"] = step_name
-    
+
         # Print out on a single line
         logging.info(json.dumps(log_entry))
 
@@ -69,33 +71,33 @@ class MetricWorkflow(BaseWorkflow):
     # STEP
     def log_step_start(self, step_name, message=""):
         if not message:
-            message=f"Starting step {step_name}"
+            message = f"Starting step {step_name}"
         self._log(message, step_name, "start", integrity=None)
-    
+
     def log_step_success(self, step_name, message="", integrity=None):
         if not message:
-            message=f"Step {step_name} successful"
+            message = f"Step {step_name} successful"
         self._log(message, step_name, "success", integrity)
 
     def log_step_error(self, step_name, message="", integrity=None):
         if not message:
-            message=f"Step {step_name} failed"
+            message = f"Step {step_name} failed"
         self._log(message, step_name, "error", integrity)
 
     # WORKFLOW
     def log_workflow_start(self, message=""):
         if not message:
-            message=f"Starting workflow {self.name}: {self.description}"
+            message = f"Starting workflow {self.name}: {self.description}"
         self._log(message, None, "start", integrity=None)
-    
+
     def log_workflow_success(self, message=""):
         if not message:
-            message=f"Workflow {self.name} was successful"
+            message = f"Workflow {self.name} was successful"
         self._log(message, None, "success", self.integrity)
 
     def log_workflow_error(self, message=""):
         if not message:
-            message=f"Workflow {self.name} had an error"
+            message = f"Workflow {self.name} had an error"
         self._log(message, None, "error", self.integrity)
 
     def check_integrity(self) -> int:
@@ -110,4 +112,3 @@ class MetricWorkflow(BaseWorkflow):
             print("... Integrity failure: suspicious terms found in raw page source")
             return 0
         return 1
-

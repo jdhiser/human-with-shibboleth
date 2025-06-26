@@ -12,6 +12,7 @@ from .base_driver import BaseDriverHelper
 
 DRIVER_NAME = 'ChromeWebDriver'
 
+
 class WebDriverHelper(BaseDriverHelper):
 
     def __init__(self):
@@ -46,19 +47,21 @@ class WebDriverHelper(BaseDriverHelper):
             os.environ["XDG_CACHE_HOME"] = xdg_cache_dir
             os.environ["XDG_CONFIG_HOME"] = xdg_config_dir
 
-            # Add user-data-dir argument if use_tmp 
+            # Add user-data-dir argument if use_tmp
             self.options.add_argument(f'--user-data-dir={base_dir}')
 
             # Use custom cache manager
             cache_manager = DriverCacheManager(cache_dir)
 
-        self._driver_path = ChromeDriverManager(cache_manager=cache_manager).install()
+        self._driver_path = ChromeDriverManager(
+            cache_manager=cache_manager).install()
         self._driver = None
 
     @property
     def driver(self):
         if self._driver is None:
-            self._driver = webdriver.Chrome(service=Service(self._driver_path), options=self.options)
+            self._driver = webdriver.Chrome(service=Service(
+                self._driver_path), options=self.options)
         return self._driver
 
     def stop_browser(self):
@@ -69,7 +72,8 @@ class WebDriverHelper(BaseDriverHelper):
 
     def restart_browser(self):
         self._driver.quit()
-        self._driver = webdriver.Chrome(self._driver_path, options=self.options)
+        self._driver = webdriver.Chrome(
+            self._driver_path, options=self.options)
 
     def cleanup(self):
         self._driver.quit()

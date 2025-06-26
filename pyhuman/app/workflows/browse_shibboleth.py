@@ -12,8 +12,11 @@ WORKFLOW_NAME = 'ShibbolethBrowser'
 WORKFLOW_DESCRIPTION = 'Browse a website secured by Shibboleth'
 
 DEFAULT_INPUT_WAIT_TIME = 2
-MIN_WAIT_TIME = 2 # Minimum amount of time to wait after searching, in seconds
-MAX_WAIT_TIME = 5 # Maximum amount of time to wait after searching, in seconds
+# Minimum amount of time to wait after searching, in seconds
+MIN_WAIT_TIME = 2
+# Maximum amount of time to wait after searching, in seconds
+MAX_WAIT_TIME = 5
+
 
 def load():
     """
@@ -79,8 +82,6 @@ class ShibbolethBrowse(MetricWorkflow):
                     self.username = f.readline().strip()
                     self.password = f.readline().strip()
 
-
-
     def sign_in(self) -> bool:
         """
         Attempt to sign into a Shibboleth-protected service using stored credentials.
@@ -95,7 +96,7 @@ class ShibbolethBrowse(MetricWorkflow):
         err = True
 
         # Navigate to the secure service page
-        self.driver.driver.get('https://service.castle.os/secure/index.html')
+        self.driver.driver.get('https://service.project1.os/secure/index.html')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         try:
@@ -105,7 +106,8 @@ class ShibbolethBrowse(MetricWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'username')
             if search_element is None:
                 print("... Could not find username field")
-                self.log_step_error("password", message="could not find username field", integrity=login_page_integrity)
+                self.log_step_error(
+                    "password", message="could not find username field", integrity=login_page_integrity)
                 return err
             search_element.send_keys(self.username)
             sleep(1)
@@ -116,7 +118,8 @@ class ShibbolethBrowse(MetricWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'password')
             if search_element is None:
                 print("... Could not find password field")
-                self.log_step_error("password", message="could not find password field", integrity=login_page_integrity)
+                self.log_step_error(
+                    "password", message="could not find password field", integrity=login_page_integrity)
                 return err
             search_element.send_keys(self.password)
 
@@ -128,12 +131,15 @@ class ShibbolethBrowse(MetricWorkflow):
             self.log_step_start("login-button")
             print("... Trying to click login")
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-            search_element = self.driver.driver.find_element(By.TAG_NAME, 'button')
+            search_element = self.driver.driver.find_element(
+                By.TAG_NAME, 'button')
             if search_element is None:
                 print("... Could not find login button")
-                self.log_step_error("login-button", message="could not find login button")
+                self.log_step_error(
+                    "login-button", message="could not find login button")
                 return err
-            ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
+            ActionChains(self.driver.driver).move_to_element(
+                search_element).click(search_element).perform()
             # Temporarily delay to allow the secure page to load
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
@@ -147,10 +153,12 @@ class ShibbolethBrowse(MetricWorkflow):
 
         secure_page_integrity = self.check_integrity()
 
-        search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p')
+        search_element = self.driver.driver.find_element(
+            By.XPATH, '/html/body/p')
         if search_element is None:
             print("Could not find body paragraph of secured page")
-            self.log_step_error("secure-page-loaded", integrity=secure_page_integrity)
+            self.log_step_error("secure-page-loaded",
+                                integrity=secure_page_integrity)
             return err
 
         # Determine success of login based on expected text
@@ -158,23 +166,26 @@ class ShibbolethBrowse(MetricWorkflow):
             print(f"Login successful with: {search_element.text}")
             err = False
             # Log login result including integrity status
-            self.log_step_success("secure-page-loaded", integrity=secure_page_integrity)
+            self.log_step_success("secure-page-loaded",
+                                  integrity=secure_page_integrity)
         else:
             print(f"Login failed with: {search_element.text}")
-            self.log_step_error("secure-page-loaded", integrity=secure_page_integrity)
-
+            self.log_step_error("secure-page-loaded",
+                                integrity=secure_page_integrity)
 
         # Occasionally log out for realism
         if random.random() < 0.2:
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
             print("... Decided to log out")
             try:
-                search_element = self.driver.driver.find_element(By.ID, 'logout')
+                search_element = self.driver.driver.find_element(
+                    By.ID, 'logout')
             except Exception:
                 pass
             else:
                 if search_element is not None:
-                    ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
+                    ActionChains(self.driver.driver).move_to_element(
+                        search_element).click(search_element).perform()
                 else:
                     print("... Could not find logout link")
             print("... Stopping browser to force logout")
@@ -183,6 +194,3 @@ class ShibbolethBrowse(MetricWorkflow):
             print("... Decided not to log out")
 
         return err
-
-
-

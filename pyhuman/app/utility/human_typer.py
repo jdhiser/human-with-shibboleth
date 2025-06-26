@@ -8,6 +8,7 @@ import sys
 import random
 from typing import Callable
 
+
 class HumanTyperShell:
     def __init__(self,
                  shell: str = "/bin/bash",
@@ -30,7 +31,8 @@ class HumanTyperShell:
         self.live_echo = live_echo
         self.verbose = verbose
         self.prompt_regex = re.compile(prompt_regex)
-        self.keystroke_delay_fn = keystroke_delay_fn or (lambda: random.uniform(0.05, 0.35))
+        self.keystroke_delay_fn = keystroke_delay_fn or (
+            lambda: random.uniform(0.05, 0.35))
         self.post_prompt_delay = post_prompt_delay
         self.child_pid, self.master_fd = pty.fork()
         self._lock = threading.Lock()
@@ -42,12 +44,14 @@ class HumanTyperShell:
         if self.child_pid == 0:
             os.execvp(self.shell, [self.shell])
         else:
-            self.reader_thread = threading.Thread(target=self._read_output, daemon=True)
+            self.reader_thread = threading.Thread(
+                target=self._read_output, daemon=True)
             self.reader_thread.start()
             try:
                 self._wait_for_prompt()
             except TimeoutError:
-                raise RuntimeError("Shell did not produce prompt in time. Is the shell hanging or producing unexpected output?")
+                raise RuntimeError(
+                    "Shell did not produce prompt in time. Is the shell hanging or producing unexpected output?")
 
     def _read_output(self):
         while not self._stop:
@@ -92,7 +96,6 @@ class HumanTyperShell:
             self._buffer = self._buffer[end:]
             return output.decode(errors='ignore')
 
-
     def type_command(self, command: str) -> str:
         qwerty_neighbors = {
             'a': 'qwsz', 'b': 'vghn', 'c': 'xdfv', 'd': 'serfcx', 'e': 'wsdr',
@@ -122,7 +125,8 @@ class HumanTyperShell:
                 time.sleep(4*self.keystroke_delay_fn())
                 for _ in range(typo_count):
                     char = command[i]
-                    typo_choices = qwerty_neighbors.get(char.lower(), random.choice('abcdefghijklmnopqrstuvwxyz'))
+                    typo_choices = qwerty_neighbors.get(
+                        char.lower(), random.choice('abcdefghijklmnopqrstuvwxyz'))
 
                     typo = random.choice(typo_choices)
                     os.write(self.master_fd, typo.encode())
@@ -132,13 +136,13 @@ class HumanTyperShell:
                     # time.sleep(self.keystroke_delay_fn())
 
                 for _ in range(typo_count):
-                        # simulate backspace
-                        os.write(self.master_fd, b"\x7f")
-                        if self.live_echo:
-                            sys.stdout.write('\b \b')
-                            sys.stdout.flush()
-                        time.sleep(self.keystroke_delay_fn())
-                        typo_happened = True
+                    # simulate backspace
+                    os.write(self.master_fd, b"\x7f")
+                    if self.live_echo:
+                        sys.stdout.write('\b \b')
+                        sys.stdout.flush()
+                    time.sleep(self.keystroke_delay_fn())
+                    typo_happened = True
 
             # now type the correct character
             char = command[i]
@@ -155,7 +159,6 @@ class HumanTyperShell:
             sys.stdout.flush()
         self._suppress_output = False
         return self._wait_for_prompt(self.prompt_timeout)
-
 
     def close(self):
         self._stop = True
@@ -180,15 +183,15 @@ if __name__ == "__main__":
     def jittery_typist():
         return random.gauss(0.1, 0.03)  # mean 100ms, stddev 30ms
 
-    shell = HumanTyperShell(live_echo=True, keystroke_delay_fn=jittery_typist, verbose=True)
+    shell = HumanTyperShell(
+        live_echo=True, keystroke_delay_fn=jittery_typist, verbose=True)
 
     try:
-        output=shell.type_command("echo Hello, world")
+        output = shell.type_command("echo Hello, world")
         print(f"(Shell output was {output}")
-        output=shell.type_command("uname -r")
+        output = shell.type_command("uname -r")
         print(f"(Shell output was {output}")
-        output=shell.type_command("ls -lh /tmp")
+        output = shell.type_command("ls -lh /tmp")
         print(f"(Shell output was {output}")
     finally:
         shell.close()
-

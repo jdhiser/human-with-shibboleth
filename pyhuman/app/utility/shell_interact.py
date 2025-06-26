@@ -13,12 +13,16 @@ from typing import Callable, List, Literal, TypedDict
 SanityCheckResult = Literal["success", "retry", "fail"]
 
 # CommandTask defines the structure for each command object
+
+
 class CommandTask(TypedDict):
     command: str
     check: Callable[["CommandTask", str, int], SanityCheckResult]
 
 # Run commands using the provided HumanTyperShell instance, retrying as instructed by the check callback.
 # Throws RuntimeError if a task ultimately fails.
+
+
 def run_shell_commands_with_checks(
     shell,
     tasks: List[CommandTask],
@@ -34,9 +38,12 @@ def run_shell_commands_with_checks(
             elif result == "retry":
                 fail_count += 1
                 if fail_count > max_retries:
-                    raise RuntimeError(f"Command failed after {max_retries} retries: {task['command']}\nLast output:\n{output}")
+                    raise RuntimeError(
+                        f"Command failed after {max_retries} retries: {task['command']}\nLast output:\n{output}")
             else:
-                raise RuntimeError(f"Command permanently failed: {task['command']}\nOutput:\n{output}")
+                raise RuntimeError(
+                    f"Command permanently failed: {task['command']}\nOutput:\n{output}")
+
 
 # Example usage
 if __name__ == "__main__":
@@ -48,13 +55,15 @@ if __name__ == "__main__":
     def check_exact_string(task, output, fail_count):
         print("[DEBUG] Checking for line containing: 'bob likes ponies'")
         expected = "bob likes ponies"
-        lines = [line.strip() for line in output.strip().splitlines() if line.strip()]
+        lines = [line.strip()
+                 for line in output.strip().splitlines() if line.strip()]
         for line in lines:
             if expected in line:
                 return "success"
         return "retry" if fail_count < 2 else "fail"
 
-    shell = HumanTyperShell(live_echo=True, keystroke_delay_fn=jittery_typist, verbose=True)
+    shell = HumanTyperShell(
+        live_echo=True, keystroke_delay_fn=jittery_typist, verbose=True)
     try:
         run_shell_commands_with_checks(
             shell=shell,
@@ -75,4 +84,3 @@ if __name__ == "__main__":
         )
     finally:
         shell.close()
-
