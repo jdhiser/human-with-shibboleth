@@ -19,7 +19,7 @@ from faker.providers import person
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -36,7 +36,7 @@ def load():
     driver = WebDriverHelper()
     return MoodleBrowse(driver=driver)
 
-class MoodleBrowse(BaseWorkflow):
+class MoodleBrowse(MetricWorkflow):
 
     def __init__(self, driver, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
@@ -92,11 +92,13 @@ class MoodleBrowse(BaseWorkflow):
 
 
         try:
+            login_page_integrity = self.check_integrity()
             print(f"... Trying to enter username '{self.username}'")
 
             search_element = self.driver.driver.find_element(By.ID, 'username') # username
             if search_element is None:
                 print("... Could not find username field")
+                self.log_step_error("enter-password", integrity=login_page_integrity)
                 return True
 
             search_element.send_keys(self.username)
@@ -107,9 +109,9 @@ class MoodleBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'password') # password
             if search_element is None:
                 print("... Could not find username field")
-                self.log_step_error("enter-password")
+                self.log_step_error("enter-password", integrity=login_page_integrity)
                 return True
-            self.log_step_success("enter-password")
+            self.log_step_success("enter-password", integrity=login_page_integrity)
 
             search_element.send_keys(self.password)
 
@@ -121,19 +123,21 @@ class MoodleBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.TAG_NAME, 'button') # login button
             if search_element is None:
                 print("... Could not find login button")
-                self.log_step_error("login")
+                self.log_step_error("login", login_page_integrity)
                 return True
 
             ActionChains(self.driver.driver).move_to_element(
                     search_element).click(search_element).perform()
 
-            self.log_step_success("login")
+            self.log_step_success("login", integrity=login_page_integrity)
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
         except:
             print("... No login fields present, assuming we're already logged in")
 
         print("... Checking that Moodle Dashboard loaded")
 
+
+        dashboard_integrity=self.check_integrity();
         self.log_step_start("Dashboard")
 
         # Gather full visible text of the page
@@ -150,7 +154,7 @@ class MoodleBrowse(BaseWorkflow):
         for s in expected_strings:
             if s in page_text:
                 print(f"... Login successful with match: {s}")
-                self.log_step_success("Dashboard")
+                self.log_step_success("Dashboard", integrity=dashboard_integrity)
                 return False
 
         # No match found
@@ -158,33 +162,6 @@ class MoodleBrowse(BaseWorkflow):
         self.log_step_error("Dashboard")
         return True
 
-
-#        self.log_step_start("Dashboard")
-#
-#        search_str1 = f"Welcome, {self.username}"
-#        search_element1 = self.driver.driver.find_elements(By.XPATH,
-#                f"//*[contains(text(),'{search_str1}')]")
-#        search_str2 = "Dashboard"
-#        search_element2 = self.driver.driver.find_elements(By.XPATH,
-#                f"//h1[contains(text(),'{search_str2}')]")
-#        if len(search_element1) == 0 and len(search_element2) == 0:
-#            print("... Could not find Moodle Dashboard text element")
-#            self.log_step_error("Dashboard")
-#            return True
-#
-#        if len(search_element1) == 0:
-#            search_element=search_element2[0]
-#        else:
-#            search_element=search_element1[0]
-#
-#        if not search_str1 in search_element.text and not search_str2 in search_element.text:
-#            print(f"... Login failed with: {search_str1} "
-#                    f"and {search_str2} not in {search_element.text}")
-#            self.log_step_error("Dashboard")
-#            return True
-#        print(f"... Login successful with: {search_element.text}")
-#        self.log_step_success("Dashboard")
-#        return False
 
 
     def enrol_in_course(self) -> bool:
@@ -198,9 +175,9 @@ class MoodleBrowse(BaseWorkflow):
         err = err or self.find_id_and_click('id_submitbutton')
 
         if err:
-            self.log_step_error("CourseEnroll")
+            self.log_step_error("CourseEnroll", integrity=self.check_integrity())
         else:
-            self.log_step_success("CourseEnroll")
+            self.log_step_success("CourseEnroll", integrity=self.check_integrity())
 
         return err
 
@@ -248,9 +225,9 @@ class MoodleBrowse(BaseWorkflow):
                     self.driver.driver.back()
                     sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     if err:
-                        self.log_step_error("BrowseCourse:Announcements")
+                        self.log_step_error("BrowseCourse:Announcements", integrity=self.check_integrity())
                     else:
-                        self.log_step_success("BrowseCourse:Announcements")
+                        self.log_step_success("BrowseCourse:Announcements", integrity=self.check_integrity())
                 case 1: # Week 1
                     self.log_step_start("BrowseCourse:CGC")
                     err = err or self.find_text_and_click('cgc talk')
@@ -259,16 +236,16 @@ class MoodleBrowse(BaseWorkflow):
                     self.driver.driver.back()
                     sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     if err:
-                        self.log_step_error("BrowseCourse:CGC")
+                        self.log_step_error("BrowseCourse:CGC", integrity=self.check_integrity())
                     else:
-                        self.log_step_success("BrowseCourse:CGC")
+                        self.log_step_success("BrowseCourse:CGC", integrity=self.check_integrity())
                 case 2: # Week 2
                     self.log_step_start("BrowseCourse:RAMPART")
                     err = err or self.find_text_and_click('RAMPART slides', link_type='a')
                     if err:
-                        self.log_step_error("BrowseCourse:RAMPART")
+                        self.log_step_error("BrowseCourse:RAMPART", integrity=self.check_integrity())
                     else:
-                        self.log_step_success("BrowseCourse:RAMPART")
+                        self.log_step_success("BrowseCourse:RAMPART", integrity=self.check_integrity())
                 case 3: # Week 3
                     self.log_step_start("BrowseCourse:Week3")
                     err = err or self.find_text_and_click('week 3 lecture')
@@ -277,16 +254,16 @@ class MoodleBrowse(BaseWorkflow):
                     self.driver.driver.back()
                     sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
                     if err:
-                        self.log_step_error("BrowseCourse:Week3")
+                        self.log_step_error("BrowseCourse:Week3", integrity=self.check_integrity())
                     else:
-                        self.log_step_success("BrowseCourse:Week3")
+                        self.log_step_success("BrowseCourse:Week3", integrity=self.check_integrity())
                 case 4: # Week 4
                     self.log_step_start("BrowseCourse:Caldera")
                     err = err or self.find_text_and_click('caldera slides', link_type='a')
                     if err:
-                        self.log_step_error("BrowseCourse:Caldera")
+                        self.log_step_error("BrowseCourse:Caldera", integrity=self.check_integrity())
                     else:
-                        self.log_step_success("BrowseCourse:Caldera")
+                        self.log_step_success("BrowseCourse:Caldera", integrity=self.check_integrity())
 
         return err
 
@@ -317,9 +294,9 @@ class MoodleBrowse(BaseWorkflow):
                         viewer.send_keys(Keys.END)
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
         if err:
-            self.log_step_error("BrowseCourse:MoodlePDF")
+            self.log_step_error("BrowseCourse:MoodlePDF", integrity=self.check_integrity())
         else:
-            self.log_step_success("BrowseCourse:MoodlePDF")
+            self.log_step_success("BrowseCourse:MoodlePDF", integrity=self.check_integrity())
         return err
 
 

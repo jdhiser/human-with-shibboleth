@@ -3,7 +3,7 @@ import random
 
 # from soupsieve import select
 
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
@@ -26,7 +26,7 @@ def load():
     return ShibbolethBrowse(driver=driver)
 
 
-class ShibbolethBrowse(BaseWorkflow):
+class ShibbolethBrowse(MetricWorkflow):
     """
     Workflow for browsing a Shibboleth-secured website.
 
@@ -79,18 +79,6 @@ class ShibbolethBrowse(BaseWorkflow):
                     self.username = f.readline().strip()
                     self.password = f.readline().strip()
 
-    def _check_integrity(self) -> int:
-        """
-        Scan the current page source for suspicious terms.
-
-        Returns:
-            int: 0 if 'pwned' or 'pwnd' is found (case insensitive), otherwise 1.
-        """
-        raw_page = self.driver.driver.page_source.lower()
-        if "pwned" in raw_page or "pwnd" in raw_page:
-            print("... Integrity failure: suspicious terms found in raw page source")
-            return 0
-        return 1
 
 
     def sign_in(self) -> bool:
@@ -111,11 +99,13 @@ class ShibbolethBrowse(BaseWorkflow):
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         try:
+            login_page_integrity = self.check_integrity()
             # Attempt to locate and fill in the username field
             print(f"... Trying to enter username '{self.username}'")
             search_element = self.driver.driver.find_element(By.ID, 'username')
             if search_element is None:
                 print("... Could not find username field")
+                self.log_step_error("password", message="could not find username field", integrity=login_page_integrity)
                 return err
             search_element.send_keys(self.username)
             sleep(1)
@@ -126,12 +116,11 @@ class ShibbolethBrowse(BaseWorkflow):
             search_element = self.driver.driver.find_element(By.ID, 'password')
             if search_element is None:
                 print("... Could not find password field")
-                self.log_step_error("password", message="could not find password field")
+                self.log_step_error("password", message="could not find password field", integrity=login_page_integrity)
                 return err
             search_element.send_keys(self.password)
 
-            integrity = self._check_integrity()
-            self.log_step_success("password", integrity=integrity)
+            self.log_step_success("password", integrity=login_page_integrity)
 
             sleep(1)
 
@@ -156,12 +145,12 @@ class ShibbolethBrowse(BaseWorkflow):
         # Attempt to locate the secured content on the post-login page
         print("... Checking that secure page loaded")
 
-        integrity2 = self._check_integrity()
+        secure_page_integrity = self.check_integrity()
 
         search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p')
         if search_element is None:
             print("Could not find body paragraph of secured page")
-            self.log_step_error("secure-page-loaded", integrity=integrity2)
+            self.log_step_error("secure-page-loaded", integrity=secure_page_integrity)
             return err
 
         # Determine success of login based on expected text
@@ -169,10 +158,10 @@ class ShibbolethBrowse(BaseWorkflow):
             print(f"Login successful with: {search_element.text}")
             err = False
             # Log login result including integrity status
-            self.log_step_success("secure-page-loaded", integrity=integrity2)
+            self.log_step_success("secure-page-loaded", integrity=secure_page_integrity)
         else:
             print(f"Login failed with: {search_element.text}")
-            self.log_step_error("secure-page-loaded", integrity=integrity2)
+            self.log_step_error("secure-page-loaded", integrity=secure_page_integrity)
 
 
         # Occasionally log out for realism
