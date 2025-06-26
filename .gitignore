@@ -3,3 +3,4 @@ __pycache__
 .DS_Store
 payloads/*.tar.gz
 payloads/*.zip
+*.swp

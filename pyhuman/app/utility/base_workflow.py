@@ -14,11 +14,12 @@ class BaseWorkflow(object):
         self.name = name
         self.description = description
         self.driver = driver
+        self.integrity = 1
 
     @abstractmethod
     def action(self, extra=None):
         pass
-    
+
     def cleanup(self):
         if self.driver is None:
             return
