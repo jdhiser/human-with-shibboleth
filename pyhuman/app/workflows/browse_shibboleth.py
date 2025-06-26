@@ -16,120 +16,184 @@ MIN_WAIT_TIME = 2 # Minimum amount of time to wait after searching, in seconds
 MAX_WAIT_TIME = 5 # Maximum amount of time to wait after searching, in seconds
 
 def load():
+    """
+    Load the Shibboleth workflow with an initialized WebDriver.
+
+    Returns:
+        ShibbolethBrowse: Instance of the workflow.
+    """
     driver = WebDriverHelper()
     return ShibbolethBrowse(driver=driver)
 
 
 class ShibbolethBrowse(BaseWorkflow):
+    """
+    Workflow for browsing a Shibboleth-secured website.
+
+    Automates login and logout, logs each step, and checks whether the secure page loads.
+    """
 
     def __init__(self, driver, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
+        """
+        Initialize workflow state.
+
+        Args:
+            driver (WebDriverHelper): WebDriver abstraction.
+            input_wait_time (int): Seconds to wait before interaction steps.
+        """
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
-        self.username=None
-        self.password=None
-
-
-
+        self.username = None
+        self.password = None
 
     def action(self, extra=None):
+        """
+        Main entry point for the workflow.
+
+        If credentials are not yet loaded, calls get_creds(). Then attempts sign-in.
+
+        Args:
+            extra (list, optional): Optional extra arguments for credential loading.
+
+        Returns:
+            bool: True on error, False on success.
+        """
         if self.username is None:
             self.get_creds(extra)
         err = self.sign_in()
         return err
 
-    """ PRIVATE """
-
     def get_creds(self, extra=None):
-        self.username='jdh'
-        self.password='jdhpass'
-        
-        passfile=None
-        if len(extra)==2:
+        """
+        Load credentials either from hardcoded default or from a specified password file.
+
+        Args:
+            extra (list, optional): If ['passfile', <filename>] is passed, reads credentials from file.
+        """
+        self.username = 'jdh'
+        self.password = 'jdhpass'
+
+        passfile = None
+        if len(extra) == 2:
             if extra[0] == "passfile":
                 with open(extra[1]) as f:
                     self.username = f.readline().strip()
                     self.password = f.readline().strip()
 
+    def _check_integrity(self) -> int:
+        """
+        Scan the current page source for suspicious terms.
 
-    def sign_in(self):
+        Returns:
+            int: 0 if 'pwned' or 'pwnd' is found (case insensitive), otherwise 1.
+        """
+        raw_page = self.driver.driver.page_source.lower()
+        if "pwned" in raw_page or "pwnd" in raw_page:
+            print("... Integrity failure: suspicious terms found in raw page source")
+            return 0
+        return 1
+
+
+    def sign_in(self) -> bool:
+        """
+        Attempt to sign into a Shibboleth-protected service using stored credentials.
+
+        Navigates to the login page, fills in the username and password, and clicks the login button.
+        Before any interaction, it checks the loaded HTML source for undesirable integrity markers.
+        After logging in, it verifies that the secure page has loaded correctly.
+
+        Returns:
+            bool: True if an error occurred during login, False if login was successful.
+        """
         err = True
 
-        # Navigate to youtube
+        # Navigate to the secure service page
         self.driver.driver.get('https://service.castle.os/secure/index.html')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
-
         try:
+            # Attempt to locate and fill in the username field
             print(f"... Trying to enter username '{self.username}'")
-
-            search_element = self.driver.driver.find_element(By.ID, 'username') # username
+            search_element = self.driver.driver.find_element(By.ID, 'username')
             if search_element is None:
                 print("... Could not find username field")
                 return err
-
             search_element.send_keys(self.username)
             sleep(1)
-            print(f"... Trying to enter password '{self.password}'")
 
+            # Attempt to locate and fill in the password field
+            print(f"... Trying to enter password '{self.password}'")
             self.log_step_start("password")
-            search_element = self.driver.driver.find_element(By.ID, 'password') # password
+            search_element = self.driver.driver.find_element(By.ID, 'password')
             if search_element is None:
-                print("... Could not find username field")
-                self.log_step_error("password", message="could not find username field")
+                print("... Could not find password field")
+                self.log_step_error("password", message="could not find password field")
                 return err
             search_element.send_keys(self.password)
-            self.log_step_success("password")
+
+            integrity = self._check_integrity()
+            self.log_step_success("password", integrity=integrity)
 
             sleep(1)
+
+            # Attempt to locate and click the login button
             self.log_step_start("login-button")
             print("... Trying to click login")
-
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-            search_element = self.driver.driver.find_element(By.TAG_NAME, 'button') # login button
+            search_element = self.driver.driver.find_element(By.TAG_NAME, 'button')
             if search_element is None:
                 print("... Could not find login button")
                 self.log_step_error("login-button", message="could not find login button")
                 return err
-            self.log_step_success("login-button")
-
             ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
-
+            # Temporarily delay to allow the secure page to load
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-        except:
+
+        except Exception:
+            # If any element is missing, assume we may already be logged in
             print("... No login fields present, assuming we're already logged in")
             pass
 
+        # Attempt to locate the secured content on the post-login page
         print("... Checking that secure page loaded")
 
-        search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p') # main body paragraph
+        integrity2 = self._check_integrity()
+
+        search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p')
         if search_element is None:
             print("Could not find body paragraph of secured page")
+            self.log_step_error("secure-page-loaded", integrity=integrity2)
             return err
 
-        # Determine whether workflow succeeded
+        # Determine success of login based on expected text
         if 'xample paragraph for a secure director' in search_element.text:
             print(f"Login successful with: {search_element.text}")
             err = False
+            # Log login result including integrity status
+            self.log_step_success("secure-page-loaded", integrity=integrity2)
         else:
             print(f"Login failed with: {search_element.text}")
+            self.log_step_error("secure-page-loaded", integrity=integrity2)
 
-        
+
+        # Occasionally log out for realism
         if random.random() < 0.2:
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
             print("... Decided to log out")
             try:
-                search_element = self.driver.driver.find_element(By.ID, 'logout') # logout button
-            except:
+                search_element = self.driver.driver.find_element(By.ID, 'logout')
+            except Exception:
                 pass
             else:
-                if search_element is None:
-                    print("... Could not find logout link")
-                else:
+                if search_element is not None:
                     ActionChains(self.driver.driver).move_to_element(search_element).click(search_element).perform()
+                else:
+                    print("... Could not find logout link")
             print("... Stopping browser to force logout")
-            self.driver.stop_browser() # restart browser for security!
+            self.driver.stop_browser()
         else:
             print("... Decided not to log out")
 
         return err
+
 
 

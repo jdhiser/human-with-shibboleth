@@ -30,6 +30,7 @@ class BaseWorkflow(object):
         self.name = name
         self.description = description
         self.driver = driver
+        self.integrity = 1
 
     @abstractmethod
     def action(self, extra=None):
@@ -41,7 +42,7 @@ class BaseWorkflow(object):
         self.driver.cleanup()
 
 
-    def _log(self, message, step_name, status):
+    def _log(self, message, step_name, status, integrity):
         """
         Log a workflow or workflow step in JSON format.
 
@@ -51,6 +52,8 @@ class BaseWorkflow(object):
         - status (str): Status of the step ("start", "success", "error").
         - step_name (str, optional): Name of the current step in the workflow (default: None).
         """
+        if integrity is not None:
+            self.integrity &= integrity
         valid_statuses = {"start", "success", "error"}
         if status not in valid_statuses:
             raise ValueError(f"Invalid status: '{status}'. Valid statuses are {valid_statuses}.")
@@ -65,6 +68,8 @@ class BaseWorkflow(object):
             "hostname": get_local_hostname(),
             "pid": os.getpid(),
         }
+        if integrity is not None:
+            log_entry["integrity"] = integrity
 
         # Add step_name only if it's provided
         if step_name is not None:
@@ -83,31 +88,31 @@ class BaseWorkflow(object):
     def log_step_start(self, step_name, message=""):
         if not message:
             message=f"Starting step {step_name}"
-        self._log(message, step_name, "start")
+        self._log(message, step_name, "start", integrity=None)
     
-    def log_step_success(self, step_name, message=""):
+    def log_step_success(self, step_name, message="", integrity=None):
         if not message:
             message=f"Step {step_name} successful"
-        self._log(message, step_name, "success")
+        self._log(message, step_name, "success", integrity)
 
-    def log_step_error(self, step_name, message=""):
+    def log_step_error(self, step_name, message="", integrity=None):
         if not message:
             message=f"Step {step_name} failed"
-        self._log(message, step_name, "error")
+        self._log(message, step_name, "error", integrity)
 
     # WORKFLOW
     def log_workflow_start(self, message=""):
         if not message:
             message=f"Starting workflow {self.name}: {self.description}"
-        self._log(message, None, "start")
+        self._log(message, None, "start", integrity=None)
     
     def log_workflow_success(self, message=""):
         if not message:
             message=f"Workflow {self.name} was successful"
-        self._log(message, None, "success")
+        self._log(message, None, "success", self.integrity)
 
     def log_workflow_error(self, message=""):
         if not message:
             message=f"Workflow {self.name} had an error"
-        self._log(message, None, "error")
+        self._log(message, None, "error", self.integrity)
 

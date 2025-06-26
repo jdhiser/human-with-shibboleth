@@ -87,7 +87,7 @@ class MoodleBrowse(BaseWorkflow):
     def shib_sign_in(self) -> bool:
 
         # Navigate to moodle
-        self.driver.driver.get('https://service.project1.os/moodle/auth/shibboleth/index.php')
+        self.driver.driver.get('https://service.castle.os/moodle/auth/shibboleth/index.php')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
 
@@ -190,7 +190,7 @@ class MoodleBrowse(BaseWorkflow):
     def enrol_in_course(self) -> bool:
         self.log_step_start("CourseEnroll")
 
-        self.driver.driver.get('https://service.project1.os/moodle/?redirect=0')
+        self.driver.driver.get('https://service.castle.os/moodle/?redirect=0')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         err = self.find_text_and_click('Special Topics: AI-Powered Cybersecurity')
@@ -205,7 +205,7 @@ class MoodleBrowse(BaseWorkflow):
         return err
 
     def moodle_workflow(self) -> bool:
-        self.driver.driver.get('https://service.project1.os/moodle/my/courses.php')
+        self.driver.driver.get('https://service.castle.os/moodle/my/courses.php')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         search_str = "not enrolled in any course"
@@ -229,11 +229,11 @@ class MoodleBrowse(BaseWorkflow):
         # this might be the first time we've viewed this page, and moodle pops up a "got it"
         # pop up to help a new user navigate.  click "got it"
         err = err or self.find_link_and_click(
-                'https://service.project1.os/moodle/course/view.php?id=2')
+                'https://service.castle.os/moodle/course/view.php?id=2')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
         # go straight to course
         # print(f"Current url is {self.driver.driver.current_url}")
-        #self.driver.driver.get('https://service.project1.os/moodle/course/view.php?id=2')
+        #self.driver.driver.get('https://service.castle.os/moodle/course/view.php?id=2')
         #sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         pages_to_view = random.randint(1,3)
