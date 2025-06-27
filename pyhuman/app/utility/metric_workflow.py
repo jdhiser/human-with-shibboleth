@@ -60,13 +60,9 @@ class MetricWorkflow(BaseWorkflow):
             log_entry["step_name"] = step_name
 
         # Print out on a single line
+        logging.info("\n")
         logging.info(json.dumps(log_entry))
 
-        # print out as before
-        if step_name:
-            print(f"... {timestamp} {step_name}: {message}")
-        else:
-            print(f"{timestamp} {message}")
 
     # STEP
     def log_step_start(self, step_name, message=""):
@@ -100,6 +96,12 @@ class MetricWorkflow(BaseWorkflow):
             message = f"Workflow {self.name} had an error"
         self._log(message, None, "error", self.integrity)
 
+    def check_external_integrity(self, to_check:str ) -> int:
+        if "pwned" in to_check or "pwnd" in to_check:
+            print("... Integrity failure: suspicious terms found")
+            return 0
+        return 1
+
     def check_integrity(self) -> int:
         """
         Scan the current page source for suspicious terms.
@@ -108,7 +110,4 @@ class MetricWorkflow(BaseWorkflow):
             int: 0 if 'pwned' or 'pwnd' is found (case insensitive), otherwise 1.
         """
         raw_page = self.driver.driver.page_source.lower()
-        if "pwned" in raw_page or "pwnd" in raw_page:
-            print("... Integrity failure: suspicious terms found in raw page source")
-            return 0
-        return 1
+        return self.check_external_integrity(raw_page)
