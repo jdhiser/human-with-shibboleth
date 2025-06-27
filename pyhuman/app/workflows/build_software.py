@@ -6,7 +6,7 @@ import re
 from time import sleep
 from ..utility.human_typer import HumanTyperShell
 from ..utility.shell_interact import run_shell_commands_with_checks, CommandTask
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 
 
 WORKFLOW_NAME = 'BuildSoftware'
@@ -156,7 +156,7 @@ def load():
     return BuildSoftware()
 
 
-class BuildSoftware(BaseWorkflow):
+class BuildSoftware(MetricWorkflow):
 
     def __init__(self):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION)
@@ -173,7 +173,7 @@ class BuildSoftware(BaseWorkflow):
             #chosen_projects = [ software_projects[10] ] 
             chosen_projects = random.sample(software_projects, k=random.randint(1, 2))
             for task_group in chosen_projects:
-                run_shell_commands_with_checks(shell, task_group)
+                run_shell_commands_with_checks(shell, task_group, step_logger=self)
         finally:
             shell.close()
 
