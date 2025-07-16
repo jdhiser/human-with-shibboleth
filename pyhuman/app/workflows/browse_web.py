@@ -2,12 +2,12 @@ import os
 import random
 from time import sleep
 
-from ..utility.base_workflow import BaseWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException
 from selenium.common.exceptions import InvalidArgumentException
 from selenium.common.exceptions import TimeoutException
+from ..utility.metric_workflow import MetricWorkflow
 
 WORKFLOW_NAME = 'WebBrowser'
 WORKFLOW_DESCRIPTION = 'Select a random website and browse'
@@ -21,7 +21,7 @@ def load():
     return WebBrowse(driver=driver)
 
 
-class WebBrowse(BaseWorkflow):
+class WebBrowse(MetricWorkflow):
 
     def __init__(self, driver, max_sleep_time=MAX_SLEEP_TIME, 
                                max_navigation_clicks=MAX_NAVIGATION_CLICKS, 
