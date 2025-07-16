@@ -1,5 +1,7 @@
 from time import sleep
 import random
+import ssl
+import socket
 
 from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
@@ -7,7 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 
 WORKFLOW_NAME = 'IISBrowser'
-WORKFLOW_DESCRIPTION = 'Browse a website secured by Shibboleth'
+WORKFLOW_DESCRIPTION = 'Browse a website secured ADCS'
 
 DEFAULT_INPUT_WAIT_TIME = 2
 # Minimum amount of time to wait after searching, in seconds
@@ -25,6 +27,64 @@ def load():
     """
     driver = WebDriverHelper()
     return IISBrowse(driver=driver)
+
+
+def check_cert_trust_new(hostname: str, port: int = 443) -> bool:
+    """
+    Check if the server's certificate is trusted using your custom CA bundle.
+
+    Args:
+        hostname (str): Hostname to check.
+        port (int): Port to connect to (default 443).
+
+    Returns:
+        bool: True if the certificate is trusted, False otherwise.
+    """
+    ca_bundle_path = "/tmp/castle-ca-bundle.pem"  # update this to match your location
+
+    try:
+        context = ssl.create_default_context(cafile=ca_bundle_path)
+        with socket.create_connection((hostname, port)) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert = ssock.getpeercert()
+                print(f"... TLS certificate subject: {cert.get('subject')}")
+        return True
+    except ssl.SSLCertVerificationError as e:
+        print(f"... Certificate verification failed: {e}")
+        return False
+    except Exception as e:
+        print(f"... Unexpected error checking certificate: {e}")
+        return False
+
+
+def check_cert_trust_old(hostname: str, port: int = 443) -> bool:
+    """
+    Check if the server's certificate is trusted using system CAs.
+
+    Args:
+        hostname (str): Hostname to check.
+        port (int): Port to connect to (default 443).
+
+    Returns:
+        bool: True if the certificate is trusted, False otherwise.
+    """
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((hostname, port)) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert = ssock.getpeercert()
+                print(f"... TLS certificate subject: {cert.get('subject')}")
+        return True
+    except ssl.SSLCertVerificationError as e:
+        print(f"... Certificate verification failed: {e}")
+        return False
+    except Exception as e:
+        print(f"... Unexpected error checking certificate: {e}")
+        return False
+
+
+def check_cert_trust(hostname: str, port: int = 443) -> bool:
+        return check_cert_trust_old(hostname,port);
 
 
 class IISBrowse(MetricWorkflow):
@@ -67,7 +127,7 @@ class IISBrowse(MetricWorkflow):
         err = True
 
         # Navigate to the secure service page
-        self.driver.driver.get('https://iis.project1.os/')
+        self.driver.driver.get('https://iis.castle.project1.os/')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         # Attempt to locate the secured content on the post-login page
@@ -75,7 +135,11 @@ class IISBrowse(MetricWorkflow):
 
         page_integrity = self.check_integrity()
 
-        search_element = self.driver.driver.find_element( By.XPATH, '/html/body/p')
+        # Check if the certificate is trusted using socket/ssl
+        cert_trusted = check_cert_trust("iis.castle.project1.os")
+        print(f"... Certificate trusted: {cert_trusted}")
+
+        search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p')
         if search_element is None:
             print("Could not find body paragraph of secured page")
             self.log_step_error("page-loaded",
@@ -92,6 +156,7 @@ class IISBrowse(MetricWorkflow):
         else:
             print(f"... Login failed with: {search_element.text}")
             self.log_step_error("page-loaded",
-                                integrity=secure_page_integrity)
+                                integrity=page_integrity)
 
         return err
+
