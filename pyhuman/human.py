@@ -124,7 +124,9 @@ def import_workflows(selected_workflows: list | None = None) -> list:
                 continue
 
             try:
-                extensions.append(load_module('app/workflows', file))
+                module=load_module('app/workflows', file)
+                if module is not None:
+                    extensions.append(module)
             except Exception as e:
                 print(f'Error could not load workflow {file}: {e}')
 

@@ -55,53 +55,59 @@ class GoogleSearch(BaseWorkflow):
                 self._click_on_search_result()
             elif chosen_action == "lucky":
                 self._hover_click_feeling_lucky()
-            
+
             sleep(DEFAULT_WAIT_TIME)
             # Randomly navigate on the current website
             self._navigate_webpage()
 
         except Exception as e:
-            print('Error performing google search %s: %s' % (random_search.rstrip(), e))
+            print('Error performing google search %s: %s' %
+                  (random_search.rstrip(), e))
             print('At:')
             print(e)
             print(traceback.format_exc())
 
     def _click_on_search_result(self):
         print(".... Clicking on search  result")
-        search_result = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.CLASS_NAME, "yuRUbf")))[0]
-        ActionChains(self.driver.driver).move_to_element(search_result).click(search_result).perform()
+        search_result = WebDriverWait(self.driver.driver, 30).until(
+            EC.visibility_of_any_elements_located((By.CLASS_NAME, "yuRUbf")))[0]
+        ActionChains(self.driver.driver).move_to_element(
+            search_result).click(search_result).perform()
 
     def _browse_search_results(self):
         # Click through search result pages
         print(".... Browsing search results")
-        for _ in range(0,random.randint(0,MAX_PAGES)):
+        for _ in range(0, random.randint(0, MAX_PAGES)):
 
             # google doesn't have a next button anymore.  just infinit scroll
-            #next_button = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
-            #ActionChains(self.driver.driver).move_to_element(next_button).click(next_button).perform()
+            # next_button = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
+            # ActionChains(self.driver.driver).move_to_element(next_button).click(next_button).perform()
 
-            self.driver.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+            self.driver.driver.execute_script(
+                "window.scrollTo(0, document.body.scrollHeight)")
             sleep(DEFAULT_WAIT_TIME)
-
-
 
     def _google_search(self, random_search):
         print(".... Googling:", random_search.rstrip())
-        elem = self.driver.driver.find_element(By.NAME,'q')
+        elem = self.driver.driver.find_element(By.NAME, 'q')
         elem.clear()
         sleep(self.input_wait_time)
         elem.send_keys(random_search)
-        self.driver.driver.execute_script("window.scrollTo(0, document.body.Height)")
+        self.driver.driver.execute_script(
+            "window.scrollTo(0, document.body.Height)")
 
     def _hover_click_feeling_lucky(self):
         print(".... Hovering & clicking 'I'm Feeling lucky' button")
-        element = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By. CSS_SELECTOR, '[name="btnI"][type="submit"]')))[0]
-        ActionChains(self.driver.driver).move_to_element(element).click(element).perform()
+        element = WebDriverWait(self.driver.driver, 30).until(
+            EC.visibility_of_any_elements_located((By. CSS_SELECTOR, '[name="btnI"][type="submit"]')))[0]
+        ActionChains(self.driver.driver).move_to_element(
+            element).click(element).perform()
 
     def _navigate_webpage(self):
         # Navigate webpage
         navigation_clicks = random.randrange(0, MAX_NAVIGATION_CLICKS)
-        print(".... Navigating and highlighting web page", navigation_clicks, "times")
+        print(".... Navigating and highlighting web page",
+              navigation_clicks, "times")
         for _ in range(0, navigation_clicks):
             clickables = self.driver.driver.find_elements(By.TAG_NAME, ("a"))
             if len(clickables) == 0:
@@ -109,10 +115,11 @@ class GoogleSearch(BaseWorkflow):
             clickable = random.choice(clickables)
             try:
                 self._highlight(clickable)
-                self.driver.driver.execute_script("arguments[0].target='_self';", clickable)
+                self.driver.driver.execute_script(
+                    "arguments[0].target='_self';", clickable)
                 clickable.click()
                 print("........ successful navigation")
-            except:
+            except Exception:
                 print("........ X unsuccessful navigation")
                 pass
 
@@ -121,9 +128,10 @@ class GoogleSearch(BaseWorkflow):
 
     def _highlight(self, element):
         driver = element._parent
+
         def apply_style(s):
             driver.execute_script("arguments[0].setAttribute('style', arguments[1]);",
-                                element, s)
+                                  element, s)
         original_style = element.get_attribute('style')
         apply_style("border: 10px solid red;")
         sleep(DEFAULT_WAIT_TIME)
@@ -135,4 +143,3 @@ class GoogleSearch(BaseWorkflow):
                                                'data', SEARCH_LIST))) as f:
             wordlist = f.readlines()
         return wordlist
-

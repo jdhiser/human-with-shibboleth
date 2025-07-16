@@ -6,7 +6,6 @@ import socket
 from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
 
 WORKFLOW_NAME = 'IISBrowser'
 WORKFLOW_DESCRIPTION = 'Browse a website secured ADCS'
@@ -84,7 +83,7 @@ def check_cert_trust_old(hostname: str, port: int = 443) -> bool:
 
 
 def check_cert_trust(hostname: str, port: int = 443) -> bool:
-        return check_cert_trust_old(hostname,port);
+    return check_cert_trust_old(hostname, port)
 
 
 class IISBrowse(MetricWorkflow):
@@ -116,7 +115,6 @@ class IISBrowse(MetricWorkflow):
         """
         return self.load_iis_webpage()
 
-
     def load_iis_webpage(self) -> bool:
         """
         Attempt to sign into an IIS service.
@@ -139,7 +137,8 @@ class IISBrowse(MetricWorkflow):
         cert_trusted = check_cert_trust("iis.castle.project1.os")
         print(f"... Certificate trusted: {cert_trusted}")
 
-        search_element = self.driver.driver.find_element(By.XPATH, '/html/body/p')
+        search_element = self.driver.driver.find_element(
+            By.XPATH, '/html/body/p')
         if search_element is None:
             print("Could not find body paragraph of secured page")
             self.log_step_error("page-loaded",
@@ -148,7 +147,7 @@ class IISBrowse(MetricWorkflow):
 
         # Determine success of login based on expected text
         if 'This site is secured with a certificate from Active Directory Certificate Services.' in search_element.text:
-            print(f"... Page load successful!")
+            print("... Page load successful!")
             err = False
             # Log login result including integrity status
             self.log_step_success("page-loaded",
@@ -159,4 +158,3 @@ class IISBrowse(MetricWorkflow):
                                 integrity=page_integrity)
 
         return err
-

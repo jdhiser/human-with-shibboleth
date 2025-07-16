@@ -1,4 +1,5 @@
 import os
+import platform
 from importlib import import_module
 from time import sleep, time
 
@@ -9,10 +10,12 @@ WORKFLOW_NAME = 'MicrosoftPaint'
 WORKFLOW_DESCRIPTION = 'Create a blank MS Paint file (Windows)'
 
 DEFAULT_INPUT_WAIT_TIME = 2
-DEFAULT_PAINT_PATH = paint_path = 'C:\Windows\System32\mspaint.exe'
+DEFAULT_PAINT_PATH = paint_path = 'C:\\Windows\\System32\\mspaint.exe'
 
 
 def load():
+    if platform.system() != "Windows":
+        return None
     pyautogui = import_module('pyautogui')
     return msPaint(pyautogui=pyautogui)
 

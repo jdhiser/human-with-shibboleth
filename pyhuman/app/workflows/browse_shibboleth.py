@@ -75,7 +75,6 @@ class ShibbolethBrowse(MetricWorkflow):
         self.username = 'jdh'
         self.password = 'jdhpass'
 
-        passfile = None
         if len(extra) == 2:
             if extra[0] == "passfile":
                 with open(extra[1]) as f:

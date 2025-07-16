@@ -16,6 +16,7 @@ MAX_NAVIGATION_CLICKS = 15
 MAX_SLEEP_TIME = 20
 DEFAULT_TIMEOUT = 45
 
+
 def load():
     driver = WebDriverHelper()
     return WebBrowse(driver=driver)
@@ -23,9 +24,9 @@ def load():
 
 class WebBrowse(MetricWorkflow):
 
-    def __init__(self, driver, max_sleep_time=MAX_SLEEP_TIME, 
-                               max_navigation_clicks=MAX_NAVIGATION_CLICKS, 
-                               default_timeout=DEFAULT_TIMEOUT):
+    def __init__(self, driver, max_sleep_time=MAX_SLEEP_TIME,
+                 max_navigation_clicks=MAX_NAVIGATION_CLICKS,
+                 default_timeout=DEFAULT_TIMEOUT):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
 
         self.max_sleep_time = max_sleep_time
@@ -41,14 +42,12 @@ class WebBrowse(MetricWorkflow):
     def _web_browse(self):
         self.driver.driver.set_page_load_timeout(self.default_timeout)
         self._browse(self._get_random_website())
-        sleep(random.randint(1,self.max_sleep_time))
+        sleep(random.randint(1, self.max_sleep_time))
         self._navigate_website()
-
 
     def _get_random_website(self):
         # Get a random website from the list of websites
         return random.choice(self.website_list)
-
 
     def _browse(self, random_website):
         print("Browsing to", random_website.rstrip())
@@ -89,7 +88,7 @@ class WebBrowse(MetricWorkflow):
                 try:
                     self.driver.driver.get(url)
                     print(f"... {num_click}. Navigated to {url}")
-                    sleep(random.randint(1,self.max_sleep_time))
+                    sleep(random.randint(1, self.max_sleep_time))
                 except TimeoutException as error:
                     print(f"Timeout loading {url.rstrip()}: {error}")
                 except InvalidArgumentException as error:

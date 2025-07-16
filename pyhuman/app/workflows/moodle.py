@@ -137,7 +137,7 @@ class MoodleBrowse(MetricWorkflow):
 
             self.log_step_success("login", integrity=login_page_integrity)
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-        except Exception as _:
+        except Exception:
             print("... No login fields present, assuming we're already logged in")
 
         print("... Checking that Moodle Dashboard loaded")
@@ -171,7 +171,8 @@ class MoodleBrowse(MetricWorkflow):
     def enrol_in_course(self) -> bool:
         self.log_step_start("CourseEnroll")
 
-        self.driver.driver.get('https://service.project1.os/moodle/?redirect=0')
+        self.driver.driver.get(
+            'https://service.project1.os/moodle/?redirect=0')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
         err = self.find_text_and_click(
@@ -335,7 +336,7 @@ class MoodleBrowse(MetricWorkflow):
                 element.click()
                 print(f"... Clicked link: {element.text}")
                 return False
-            except Exception as _:
+            except Exception:
                 self.maybe_click_got_it()
                 retry += 1
                 sleep(1)
@@ -362,7 +363,7 @@ class MoodleBrowse(MetricWorkflow):
         search_element = self.driver.driver.find_element(By.XPATH,
                                                          f"//{link_type}[contains(text(),'{to_find}')]")
 
-        if search_element is None or not to_find in search_element.text:
+        if search_element is None or to_find not in search_element.text:
             print(f"... Could not find {to_find}.")
             return True
 
