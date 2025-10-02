@@ -174,6 +174,7 @@ class BuildSoftware(MetricWorkflow):
 
     def action(self, extra=None):
         self.build_software()
+        return False
 
     """ PRIVATE """
 
