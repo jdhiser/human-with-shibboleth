@@ -52,7 +52,7 @@ def handle_workflow(workflow, extra):
     except Exception:
         err = True
         if isinstance(workflow, MetricWorkflow):
-            workflow.log_workflow_error(message=f"Workflow {workflow.display} failed")
+            workflow.log_workflow_error(message=f"Workflow {workflow.display} failed with uncaught exception")
         print(f"\nWorkflow {workflow.display} failed")
         print(traceback.format_exc())
         print("Trying browser restart")
@@ -77,10 +77,10 @@ def emulation_loop(workflows: list, clustersize: int, taskinterval: int, taskgro
     Return:
     None
     """
-    infinite = lifespan_seconds == 0
+    is_infinite = lifespan_seconds == 0
     t_end = time.time() + lifespan_seconds
 
-    while infinite or time.time() < t_end:
+    while is_infinite or time.time() < t_end:
         for _ in range(clustersize):
             sleep(random.randrange(taskinterval))
             workflow = random.choice(workflows)
@@ -92,10 +92,9 @@ def emulation_loop(workflows: list, clustersize: int, taskinterval: int, taskgro
                 print('Keyboard interrupt detected, shutting down')
                 return
 
-            if not infinite and time.time() >= t_end:
+            if not is_infinite and time.time() >= t_end:
                 if not err and isinstance(workflow, MetricWorkflow):
-                    workflow.log_workflow_success()
-                    print("Finishing workflows due to time out")
+                    print("Finishing workflows due to exceeding user-requested time limit")
                 return
 
         sleep(random.randrange(taskgroupinterval))
