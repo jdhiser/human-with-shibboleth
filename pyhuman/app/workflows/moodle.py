@@ -360,8 +360,27 @@ class MoodleBrowse(MetricWorkflow):
     def find_text_and_click(self, to_find: str, link_type: str = '*') -> bool:
 
         print(f"... Trying to click {to_find}")
-        search_element = self.driver.driver.find_element(By.XPATH,
-                                                         f"//{link_type}[contains(text(),'{to_find}')]")
+        xpath = f"//{link_type}[contains(text(),'{to_find}')]"
+
+        # Wait for the element to be present AND clickable before clicking.
+        # After a page-navigation click (e.g. selecting a course before
+        # clicking "Enrol me in this course"), the target may not be in the
+        # DOM yet for a second or two. Without the wait, find_element raises
+        # NoSuchElementException and the whole workflow body crashes with
+        # an uncaught exception. 15s upper bound covers normal page loads.
+        try:
+            WebDriverWait(self.driver.driver, 15).until(
+                EC.element_to_be_clickable((By.XPATH, xpath))
+            )
+        except Exception as e:
+            print(f"... Wait for {to_find!r} timed out: {type(e).__name__}: {e}")
+            return True
+
+        try:
+            search_element = self.driver.driver.find_element(By.XPATH, xpath)
+        except Exception as e:
+            print(f"... find_element({to_find!r}) raised after wait: {type(e).__name__}: {e}")
+            return True
 
         if search_element is None or to_find not in search_element.text:
             print(f"... Could not find {to_find}.")

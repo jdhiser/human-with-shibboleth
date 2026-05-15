@@ -1,5 +1,4 @@
 import os
-import pty
 import time
 import select
 import threading
@@ -7,6 +6,14 @@ import re
 import sys
 import random
 from typing import Callable
+
+# pty is POSIX-only; on Windows the import raises ModuleNotFoundError because
+# pty depends on termios. Defer the failure to first use so workflows whose
+# action() is never called on Windows can still be imported.
+try:
+    import pty
+except ImportError:
+    pty = None
 
 
 class HumanTyperShell:
@@ -34,6 +41,8 @@ class HumanTyperShell:
         self.keystroke_delay_fn = keystroke_delay_fn or (
             lambda: random.uniform(0.05, 0.35))
         self.post_prompt_delay = post_prompt_delay
+        if pty is None:
+            raise RuntimeError("HumanTyperShell requires POSIX pty (Unix-only)")
         self.child_pid, self.master_fd = pty.fork()
         self._lock = threading.Lock()
         self._buffer = bytearray()

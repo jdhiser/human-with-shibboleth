@@ -1,5 +1,4 @@
 import os
-import pty
 import time
 import select
 import threading

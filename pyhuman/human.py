@@ -77,6 +77,10 @@ def emulation_loop(workflows: list, clustersize: int, taskinterval: int, taskgro
     Return:
     None
     """
+    if not workflows:
+        print("No workflows available to run on this platform; exiting emulation_loop")
+        return
+
     is_infinite = lifespan_seconds == 0
     t_end = time.time() + lifespan_seconds
 

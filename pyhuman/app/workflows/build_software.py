@@ -63,8 +63,12 @@ software_projects = cmds([
         ("./tmux -V", r"tmux"),
     ],
     [
+        # Pin micro to v2.0.11 (May 2022). master/HEAD bumped go.mod to
+        # `go 1.19` and started using fmt.Append, which Jammy's Go 1.18
+        # rejects at compile time ("undefined: fmt.Append"). v2.0.11 is
+        # the last release whose go.mod still says `go 1.16`.
         ("rm -rf micro*", r".*"),
-        ("git clone https://github.com/zyedidia/micro.git", r"Cloning into"),
+        ("git clone --branch v2.0.11 --depth 1 https://github.com/zyedidia/micro.git", r"Cloning into"),
         ("cd micro", r".*"),
         ("make ", r"go build"),
         ("./micro --help", r"Usage: micro"),
