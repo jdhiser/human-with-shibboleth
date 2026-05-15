@@ -1,3 +1,4 @@
+import os
 import random
 import re
 from ..utility.human_typer import HumanTyperShell
@@ -148,6 +149,14 @@ software_projects = cmds([
 
 
 def load():
+    # build_software shells out to apt-get / git / configure / make and
+    # uses a POSIX pty to drive the interactive shell -- Linux-only by
+    # design. Skip on Windows so the workflow gets excluded from the
+    # random pool instead of failing instantly with an uncaught
+    # exception on every cluster iteration (and inflating the body-error
+    # count without producing any actual workload on the fileserver).
+    if os.name != 'posix':
+        return None
     return BuildSoftware()
 
 
