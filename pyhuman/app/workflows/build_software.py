@@ -19,6 +19,26 @@ def basic_success(pattern): return lambda task, output, fail_count: (
 )
 
 
+# Stricter check for setup steps (`mkdir <dir>`, `cd <dir>`, etc.) where the
+# previous default `r".*"` matched any output -- including obvious shell
+# errors. That silently let workflows continue past a broken pre-step and
+# fail later in a confusing place. cmd_no_err returns "success" only if
+# none of the well-known error fragments appear in the output.
+_CMD_ERROR_PATTERNS = [
+    r'[Pp]ermission denied',
+    r'No such file or directory',
+    r'command not found',
+    r'cannot create',
+    r'Operation not permitted',
+    r'Read-only file system',
+]
+def cmd_no_err(task, output, fail_count):
+    for pat in _CMD_ERROR_PATTERNS:
+        if re.search(pat, output):
+            return "retry" if fail_count < 2 else "fail"
+    return "success"
+
+
 def cmds(blocks):
     def get_check(p):
         return basic_success(p) if isinstance(p, str) else p
@@ -38,7 +58,7 @@ software_projects = cmds([
     [
         ("rm -rf htop*", r".*"),
         ("git clone https://github.com/htop-dev/htop.git", r"Cloning into"),
-        ("cd htop", r".*"),
+        ("cd htop", cmd_no_err),
         ("./autogen.sh", r"configure"),
         ("./configure", r"config.status"),
         ("make -j", r"gcc .* -o htop "),
@@ -47,7 +67,7 @@ software_projects = cmds([
     [
         ("rm -rf jq*", r".*"),
         ("git clone https://github.com/jqlang/jq.git", r"Cloning into"),
-        ("cd jq", r".*"),
+        ("cd jq", cmd_no_err),
         ("git submodule update --init", r"Submodule|Checking out files"),
         ("autoreconf -fi", r"configure"),
         ("./configure", r"config.status"),
@@ -57,7 +77,7 @@ software_projects = cmds([
     [
         ("rm -rf tmux*", r".*"),
         ("git clone https://github.com/tmux/tmux.git", r"Cloning into"),
-        ("cd tmux", r".*"),
+        ("cd tmux", cmd_no_err),
         ("sh autogen.sh", r"configure"),
         ("./configure", r"config.status"),
         ("make -j", r"tmux"),
@@ -70,24 +90,24 @@ software_projects = cmds([
         # the last release whose go.mod still says `go 1.16`.
         ("rm -rf micro*", r".*"),
         ("git clone --branch v2.0.11 --depth 1 https://github.com/zyedidia/micro.git", r"Cloning into"),
-        ("cd micro", r".*"),
+        ("cd micro", cmd_no_err),
         ("make ", r"go build"),
         ("./micro --help", r"Usage: micro"),
     ],
     [
         ("rm -rf neovim*", r".*"),
         ("git clone https://github.com/neovim/neovim.git", r"Cloning into"),
-        ("cd neovim", r".*"),
+        ("cd neovim", cmd_no_err),
         ("make CMAKE_BUILD_TYPE=Release -j", r"Generating doc/tags"),
         ("./build/bin/nvim --version", r"NVIM"),
     ],
     [
         ("rm -rf wget*", r".*"),
-        ("mkdir wget", r".*"),
-        ("cd wget", r".*"),
+        ("mkdir wget", cmd_no_err),
+        ("cd wget", cmd_no_err),
         ("wget https://ftp.gnu.org/gnu/wget/wget-1.21.4.tar.gz", r"Saving to"),
         ("tar xf wget-1.21.4.tar.gz", r".*"),
-        ("cd wget-1.21.4", r".*"),
+        ("cd wget-1.21.4", cmd_no_err),
         ("./configure", r"config.status"),
         ("make -j", r"Built target|make\[.*\]"),
         ("src/wget --help", tarball_check_contains("Usage: wget")),
@@ -96,7 +116,7 @@ software_projects = cmds([
         ("rm -rf man-db*", r".*"),
         ("wget https://download.savannah.gnu.org/releases/man-db/man-db-2.12.0.tar.xz", r"Saving to"),
         ("tar xf man-db-2.12.0.tar.xz", r".*"),
-        ("cd man-db-2.12.0", r".*"),
+        ("cd man-db-2.12.0", cmd_no_err),
         ("./configure", r"config.status"),
         ("make -j", r"make\[.*\]|CC"),
         ("./src/man --help", tarball_check_contains("Usage: man")),
@@ -106,7 +126,7 @@ software_projects = cmds([
         ("curl -LO https://tukaani.org/xz/xz-5.4.5.tar.gz",
          r"Average Speed   Time    Time     Time  Current"),
         ("tar xf xz-5.4.5.tar.gz", r".*"),
-        ("cd xz-5.4.5", r".*"),
+        ("cd xz-5.4.5", cmd_no_err),
         ("./configure", r"config.status"),
         ("make -j", r"make\[.*\]|CC"),
         ("./src/xz/xz --help", tarball_check_contains("XZ Utils home page")),
@@ -115,7 +135,7 @@ software_projects = cmds([
         ("rm -rf ncurses*", r".*"),
         ("wget https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.4.tar.gz", r"Saving to"),
         ("tar xf ncurses-6.4.tar.gz", r".*"),
-        ("cd ncurses-6.4", r".*"),
+        ("cd ncurses-6.4", cmd_no_err),
         ("./configure", r"config.status"),
         ("make -j$(nproc)", r"make\[.*\]|CC"),
         ("./progs/tput --help", tarball_check_contains("Usage")),
@@ -123,7 +143,7 @@ software_projects = cmds([
     [
         ("rm -rf sbase*", r".*"),
         ("git clone git://git.suckless.org/sbase", r"Cloning into"),
-        ("cd sbase", r".*"),
+        ("cd sbase", cmd_no_err),
         ("make -j", r"c99"),
         ("./ls --help || true", r"usage|Usage|invalid option"),
     ],
@@ -131,7 +151,7 @@ software_projects = cmds([
         ("rm -rf zutils*", r".*"),
         ("wget https://download.savannah.gnu.org/releases/zutils/zutils-1.11.tar.lz", r"Saving to"),
         ("tar --lzip -xf zutils-1.11.tar.lz", r".*"),
-        ("cd zutils-1.11", r".*"),
+        ("cd zutils-1.11", cmd_no_err),
         ("./configure", r"config.status"),
         ("make -j", r"-o zcat"),
         ("./zcat --help", tarball_check_contains("Usage: zcat")),
@@ -140,7 +160,7 @@ software_projects = cmds([
         ("rm -rf bash*", r".*"),
         ("wget https://ftp.gnu.org/gnu/bash/bash-5.2.15.tar.gz", r"Saving to"),
         ("tar xf bash-5.2.15.tar.gz", r".*"),
-        ("cd bash-5.2.15", r".*"),
+        ("cd bash-5.2.15", cmd_no_err),
         ("./configure", r"config.status"),
         ("make -j", r"make\[.*\]|CC"),
         ("./bash --version", tarball_check_contains("GNU bash")),
