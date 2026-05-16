@@ -192,7 +192,13 @@ class BuildSoftware(MetricWorkflow):
     """ PRIVATE """
 
     def build_software(self):
-        shell = HumanTyperShell(live_echo=True, prompt_timeout=180.0)
+        # 1500s prompt timeout because the slowest project in the rotation
+        # (neovim's CMake/ninja Release build) routinely takes 10-20 min on
+        # m1.small. The default 180s gives up partway through and the retry
+        # loop (max 3 attempts) burns the whole 30-min stress budget rebuilding
+        # the same target instead of finishing once. With 1500s the build
+        # completes in a single attempt.
+        shell = HumanTyperShell(live_echo=True, prompt_timeout=1500.0)
         try:
             # for testing a particular software build.
             # chosen_projects = [ software_projects[10] ]
