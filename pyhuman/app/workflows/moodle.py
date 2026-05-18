@@ -145,6 +145,19 @@ class MoodleBrowse(MetricWorkflow):
         dashboard_integrity = self.check_integrity()
         self.log_step_start("Dashboard")
 
+        # Wait for the dashboard page to actually render before reading
+        # body text. Without this the post-login redirect can leave the
+        # DOM empty when we look at it -- find_element raises
+        # NoSuchElementException for "body" -- and the moodle workflow
+        # body-errors out before it can retry. Seen in stress iter-31
+        # after 30 clean iters.
+        try:
+            WebDriverWait(self.driver.driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+        except Exception:
+            pass
+
         # Gather full visible text of the page
         page_text = self.driver.driver.find_element(By.TAG_NAME, "body").text
 
