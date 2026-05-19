@@ -19,6 +19,7 @@ from faker.providers import person
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.support.ui import WebDriverWait
@@ -84,6 +85,31 @@ class MoodleBrowse(MetricWorkflow):
             else:
                 i += 1
 
+    def _dump_page_state(self, label):
+        """
+        Emit current URL + a tail of body text + title to stdout, so a
+        failed-iter log can be inspected later without needing a live
+        browser session. The Moodle/Shibboleth flow has a few states
+        (login form, IdP redirect, error page, logged-in dashboard)
+        whose body content is the only way to tell them apart.
+        """
+        try:
+            cur_url = self.driver.driver.current_url
+        except Exception:
+            cur_url = "<unavailable>"
+        try:
+            title = self.driver.driver.title
+        except Exception:
+            title = "<unavailable>"
+        try:
+            body_text = self.driver.driver.find_element(By.TAG_NAME, "body").text
+        except Exception:
+            body_text = "<no body>"
+        snippet = (body_text or "")[:1200].replace("\n", " | ")
+        print(f"... [{label}] url={cur_url}")
+        print(f"... [{label}] title={title!r}")
+        print(f"... [{label}] body[:1200]={snippet!r}")
+
     def shib_sign_in(self) -> bool:
 
         # Navigate to moodle
@@ -91,54 +117,63 @@ class MoodleBrowse(MetricWorkflow):
             'https://service.project1.os/moodle/auth/shibboleth/index.php')
         sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
 
+        # Wait up to 15s for the Shibboleth IdP login form to appear.
+        # We treat "username present" as the only valid signal that we
+        # need to fill in credentials; anything else (timeout, error
+        # page, already-logged-in dashboard) is treated as "skip the
+        # login form" and the Dashboard check below validates the
+        # outcome. This replaces the prior broad `except Exception`
+        # that silently swallowed every failure as "already logged in"
+        # and let the Dashboard check fall through with bogus state.
         try:
-            login_page_integrity = self.check_integrity()
-            print(f"... Trying to enter username '{self.username}'")
+            WebDriverWait(self.driver.driver, 15).until(
+                EC.presence_of_element_located((By.ID, "username"))
+            )
+            saw_login_form = True
+        except TimeoutException:
+            saw_login_form = False
 
-            search_element = self.driver.driver.find_element(
-                By.ID, 'username')  # username
-            if search_element is None:
-                print("... Could not find username field")
-                self.log_step_error(
+        if saw_login_form:
+            try:
+                login_page_integrity = self.check_integrity()
+                print(f"... Trying to enter username '{self.username}'")
+
+                search_element = self.driver.driver.find_element(
+                    By.ID, 'username')  # username
+                search_element.send_keys(self.username)
+                sleep(1)
+                print(f"... Trying to enter password '{self.password}'")
+
+                self.log_step_start("enter-password")
+                search_element = self.driver.driver.find_element(
+                    By.ID, 'password')  # password
+                self.log_step_success(
                     "enter-password", integrity=login_page_integrity)
+
+                search_element.send_keys(self.password)
+
+                sleep(1)
+                print("... Trying to click login")
+
+                self.log_step_start("login")
+                sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+                search_element = self.driver.driver.find_element(
+                    By.TAG_NAME, 'button')  # login button
+
+                ActionChains(self.driver.driver).move_to_element(
+                    search_element).click(search_element).perform()
+
+                self.log_step_success("login", integrity=login_page_integrity)
+                sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
+            except NoSuchElementException as e:
+                print(f"... Login form structure unexpected: {e}")
+                self._dump_page_state("login-form-malformed")
+                self.log_step_error("login")
                 return True
-
-            search_element.send_keys(self.username)
-            sleep(1)
-            print(f"... Trying to enter password '{self.password}'")
-
-            self.log_step_start("enter-password")
-            search_element = self.driver.driver.find_element(
-                By.ID, 'password')  # password
-            if search_element is None:
-                print("... Could not find username field")
-                self.log_step_error(
-                    "enter-password", integrity=login_page_integrity)
-                return True
-            self.log_step_success(
-                "enter-password", integrity=login_page_integrity)
-
-            search_element.send_keys(self.password)
-
-            sleep(1)
-            print("... Trying to click login")
-
-            self.log_step_start("login")
-            sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-            search_element = self.driver.driver.find_element(
-                By.TAG_NAME, 'button')  # login button
-            if search_element is None:
-                print("... Could not find login button")
-                self.log_step_error("login", login_page_integrity)
-                return True
-
-            ActionChains(self.driver.driver).move_to_element(
-                search_element).click(search_element).perform()
-
-            self.log_step_success("login", integrity=login_page_integrity)
-            sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
-        except Exception:
-            print("... No login fields present, assuming we're already logged in")
+        else:
+            print("... No Shibboleth username field appeared in 15s; "
+                  "assuming we're already logged in or on a non-login page")
+            self._dump_page_state("no-login-form")
 
         print("... Checking that Moodle Dashboard loaded")
 
@@ -176,8 +211,13 @@ class MoodleBrowse(MetricWorkflow):
                     "Dashboard", integrity=dashboard_integrity)
                 return False
 
-        # No match found
+        # No match found -- dump page state so the next failure is
+        # diagnosable. Without this we just see "Could not find Moodle
+        # Dashboard text element" with no clue whether the browser is
+        # on an IdP error page, mid-redirect, a logout page, or something
+        # entirely unexpected.
         print("... Could not find Moodle Dashboard text element")
+        self._dump_page_state("dashboard-miss")
         self.log_step_error("Dashboard")
         return True
 
