@@ -105,7 +105,7 @@ software_projects = cmds([
         ("rm -rf wget*", r".*"),
         ("mkdir wget", cmd_no_err),
         ("cd wget", cmd_no_err),
-        ("wget https://ftp.gnu.org/gnu/wget/wget-1.21.4.tar.gz", r"Saving to"),
+        ("wget https://ftpmirror.gnu.org/gnu/wget/wget-1.21.4.tar.gz", r"Saving to"),
         ("tar xf wget-1.21.4.tar.gz", r".*"),
         ("cd wget-1.21.4", cmd_no_err),
         ("./configure", r"config.status"),
@@ -133,7 +133,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf ncurses*", r".*"),
-        ("wget https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.4.tar.gz", r"Saving to"),
+        ("wget https://ftpmirror.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz", r"Saving to"),
         ("tar xf ncurses-6.4.tar.gz", r".*"),
         ("cd ncurses-6.4", cmd_no_err),
         ("./configure", r"config.status"),
@@ -158,7 +158,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf bash*", r".*"),
-        ("wget https://ftp.gnu.org/gnu/bash/bash-5.2.15.tar.gz", r"Saving to"),
+        ("wget https://ftpmirror.gnu.org/gnu/bash/bash-5.2.15.tar.gz", r"Saving to"),
         ("tar xf bash-5.2.15.tar.gz", r".*"),
         ("cd bash-5.2.15", cmd_no_err),
         ("./configure", r"config.status"),
