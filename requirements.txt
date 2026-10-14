@@ -3,4 +3,8 @@ selenium
 webdriver-manager>=4.0.0
 pyautogui==0.9.53
 beautifulsoup4
-
+# download_files._download_nist parses with BeautifulSoup(features='lxml').
+# It is one of three downloaders picked at random, so without lxml the
+# workflow failed roughly one run in three with FeatureNotFound -- often
+# enough to look flaky, rarely enough to pass a spot check.
+lxml
