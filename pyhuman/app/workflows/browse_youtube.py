@@ -1,10 +1,10 @@
-from time import sleep
 import os
+from time import sleep, time
 import random
 
 # from soupsieve import select
 
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -23,6 +23,17 @@ MAX_WATCH_TIME = 150  # Maximum amount of time to watch a video, in seconds
 MIN_WAIT_TIME = 2  # Minimum amount of time to wait after searching, in seconds
 MAX_WAIT_TIME = 5  # Maximum amount of time to wait after searching, in seconds
 MAX_SUGGESTED_VIDEOS = 10
+
+# Total wall-clock this workflow may spend, in seconds.
+#
+# emulate-logins forces login_length = 60 under --fast-debug, and human.py is
+# started with --stopafter <login_length>. The success event is only emitted
+# when action() returns, so anything that outlives the window can never be
+# recorded as a success -- MAX_WATCH_TIME alone is 150 s, so browse_youtube
+# failed 100% of the time in every fast-debug run regardless of whether it
+# worked. Budget the whole workflow instead of each sleep, so it still watches
+# and clicks through when there is time and still finishes when there is not.
+WORKFLOW_BUDGET_S = int(os.environ.get('PYHUMAN_YOUTUBE_BUDGET_S', '40'))
 
 SEARCH_LIST = 'browse_youtube.txt'
 
@@ -54,7 +65,7 @@ def load():
     return YoutubeSearch(driver=driver)
 
 
-class YoutubeSearch(BaseWorkflow):
+class YoutubeSearch(MetricWorkflow):
 
     def __init__(self, driver, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
@@ -68,6 +79,7 @@ class YoutubeSearch(BaseWorkflow):
     """ PRIVATE """
 
     def _search_web(self):
+        deadline = time() + WORKFLOW_BUDGET_S
         random_search = self._get_random_search()
 
         # Navigate to youtube
@@ -97,10 +109,15 @@ class YoutubeSearch(BaseWorkflow):
                 attempts += 1
                 print("... Failed to click, retrying.")
 
-        sleep(random.randrange(MIN_WATCH_TIME, MAX_WATCH_TIME))
+        # Watch, but never past the deadline.
+        remaining = max(0, int(deadline - time()))
+        if remaining > MIN_WATCH_TIME:
+            sleep(random.randrange(MIN_WATCH_TIME, min(MAX_WATCH_TIME, remaining)))
 
         # Click on a random video from the suggested videos
         for _ in range(0, random.randrange(0, MAX_SUGGESTED_VIDEOS)):
+            if time() >= deadline:
+                break
             sleep(random.randrange(MIN_WAIT_TIME, MAX_WAIT_TIME))
             suggested_videos = self.driver.driver.find_elements(
                 By.ID, "video-title")

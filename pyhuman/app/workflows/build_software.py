@@ -54,10 +54,15 @@ def tarball_check_contains(string):
 
 
 # Software project definitions
+#
+# Clones are --depth 1: these workflows build the tip, never consult history,
+# and emulate-logins runs them inside a 60 s login window under --fast-debug
+# (it forces login_length = 60). A full clone of neovim or tmux spends most of
+# that window fetching history nobody looks at. micro was already shallow.
 software_projects = cmds([
     [
         ("rm -rf htop*", r".*"),
-        ("git clone https://github.com/htop-dev/htop.git", r"Cloning into"),
+        ("git clone --depth 1 https://github.com/htop-dev/htop.git", r"Cloning into"),
         ("cd htop", cmd_no_err),
         ("./autogen.sh", r"configure"),
         ("./configure", r"config.status"),
@@ -66,7 +71,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf jq*", r".*"),
-        ("git clone https://github.com/jqlang/jq.git", r"Cloning into"),
+        ("git clone --depth 1 https://github.com/jqlang/jq.git", r"Cloning into"),
         ("cd jq", cmd_no_err),
         ("git submodule update --init", r"Submodule|Checking out files"),
         ("autoreconf -fi", r"configure"),
@@ -76,7 +81,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf tmux*", r".*"),
-        ("git clone https://github.com/tmux/tmux.git", r"Cloning into"),
+        ("git clone --depth 1 https://github.com/tmux/tmux.git", r"Cloning into"),
         ("cd tmux", cmd_no_err),
         ("sh autogen.sh", r"configure"),
         ("./configure", r"config.status"),
@@ -96,7 +101,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf neovim*", r".*"),
-        ("git clone https://github.com/neovim/neovim.git", r"Cloning into"),
+        ("git clone --depth 1 https://github.com/neovim/neovim.git", r"Cloning into"),
         ("cd neovim", cmd_no_err),
         ("make CMAKE_BUILD_TYPE=Release -j", r"Generating doc/tags"),
         ("./build/bin/nvim --version", r"NVIM"),

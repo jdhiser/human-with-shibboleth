@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from random import choice
 from time import sleep
 
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 
 
 WORKFLOW_NAME = 'DownloadFiles'
@@ -22,7 +22,7 @@ def load():
     return DownloadFiles()
 
 
-class DownloadFiles(BaseWorkflow):
+class DownloadFiles(MetricWorkflow):
 
     def __init__(self, input_wait_time=DEFAULT_INPUT_WAIT_TIME):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION)

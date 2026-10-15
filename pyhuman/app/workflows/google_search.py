@@ -1,9 +1,9 @@
 import traceback
-from time import sleep
+from time import sleep, time
 import os
 import random
 
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,6 +15,14 @@ WORKFLOW_DESCRIPTION = 'Search for something on Google'
 DEFAULT_WAIT_TIME = 2
 MAX_PAGES = 5
 MAX_NAVIGATION_CLICKS = 5
+
+# Total wall-clock this workflow may spend, in seconds. Same reason as
+# browse_youtube: emulate-logins forces login_length = 60 under --fast-debug
+# and the success event only fires when action() returns, so up to 5 result
+# pages plus 5 navigation clicks -- each a page load plus a 2 s sleep -- can
+# outlive the window and never be recorded. A measured run took 56 s, which is
+# inside 60 only by luck.
+WORKFLOW_BUDGET_S = int(os.environ.get('PYHUMAN_GOOGLE_BUDGET_S', '35'))
 SEARCH_LIST = 'google_searches.txt'
 
 
@@ -23,7 +31,7 @@ def load():
     return GoogleSearch(driver=driver)
 
 
-class GoogleSearch(BaseWorkflow):
+class GoogleSearch(MetricWorkflow):
 
     def __init__(self, driver, input_wait_time=DEFAULT_WAIT_TIME):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION, driver=driver)
@@ -37,6 +45,7 @@ class GoogleSearch(BaseWorkflow):
     """ PRIVATE """
 
     def _search_web(self):
+        self._deadline = time() + WORKFLOW_BUDGET_S
         random_search = self._get_random_search()
         try:
             # Navigate to google.com
@@ -78,6 +87,8 @@ class GoogleSearch(BaseWorkflow):
         # Click through search result pages
         print(".... Browsing search results")
         for _ in range(0, random.randint(0, MAX_PAGES)):
+            if time() >= getattr(self, '_deadline', float('inf')):
+                break
 
             # google doesn't have a next button anymore.  just infinit scroll
             # next_button = WebDriverWait(self.driver.driver, 30).until(EC.visibility_of_any_elements_located((By.LINK_TEXT, "Next")))[0]
@@ -109,6 +120,8 @@ class GoogleSearch(BaseWorkflow):
         print(".... Navigating and highlighting web page",
               navigation_clicks, "times")
         for _ in range(0, navigation_clicks):
+            if time() >= getattr(self, '_deadline', float('inf')):
+                break
             clickables = self.driver.driver.find_elements(By.TAG_NAME, ("a"))
             if len(clickables) == 0:
                 return

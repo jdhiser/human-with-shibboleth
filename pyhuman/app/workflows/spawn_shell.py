@@ -2,7 +2,7 @@ import subprocess
 import sys
 from time import sleep
 
-from ..utility.base_workflow import BaseWorkflow
+from ..utility.metric_workflow import MetricWorkflow
 
 
 WORKFLOW_NAME = 'ListFiles'
@@ -13,7 +13,7 @@ def load():
     return ListFiles()
 
 
-class ListFiles(BaseWorkflow):
+class ListFiles(MetricWorkflow):
 
     def __init__(self):
         super().__init__(name=WORKFLOW_NAME, description=WORKFLOW_DESCRIPTION)
