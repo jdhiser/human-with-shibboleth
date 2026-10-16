@@ -62,7 +62,8 @@ def handle_workflow(workflow, extra):
 
 
 def emulation_loop(workflows: list, clustersize: int, taskinterval: int, taskgroupinterval: int,
-                   lifespan_seconds: int, extra: list) -> None:
+                   lifespan_seconds: int, extra: list,
+                   stop_on_first_success: bool = False) -> None:
     """
     emulation_loop
 
@@ -94,6 +95,20 @@ def emulation_loop(workflows: list, clustersize: int, taskinterval: int, taskgro
                 err = handle_workflow(workflow, extra)
             except KeyboardInterrupt:
                 print('Keyboard interrupt detected, shutting down')
+                return
+
+            # handle_workflow has already called log_workflow_success() by
+            # now, so the scoreable event is on disk and it is safe to stop.
+            #
+            # Without this the loop keeps picking workflows until --stopafter
+            # expires, re-running the same one over and over. build_software
+            # draws 1-2 projects at random from a pool of 12 that includes a
+            # neovim cmake build, so "run it repeatedly until the window ends"
+            # means the window has to be sized for the worst case AND is spent
+            # in full every time. Stopping at the first success bounds the cost
+            # to the work actually done.
+            if stop_on_first_success and not err and isinstance(workflow, MetricWorkflow):
+                print("Stopping: workflow completed successfully (--stop-on-first-success)")
                 return
 
             if not is_infinite and time.time() >= t_end:
@@ -153,7 +168,8 @@ def load_module(root: str, file: str):
 
 
 def run(clustersize: int, taskinterval: int, taskgroupinterval: int,
-        lifespan_seconds: int, extra: list, workflows_list: list | None = None) -> None:
+        lifespan_seconds: int, extra: list, workflows_list: list | None = None,
+        stop_on_first_success: bool = False) -> None:
     """
     run
 
@@ -178,7 +194,8 @@ def run(clustersize: int, taskinterval: int, taskgroupinterval: int,
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    emulation_loop(workflows=workflows, clustersize=clustersize, taskinterval=taskinterval,
+    emulation_loop(stop_on_first_success=stop_on_first_success,
+                   workflows=workflows, clustersize=clustersize, taskinterval=taskinterval,
                    taskgroupinterval=taskgroupinterval, lifespan_seconds=lifespan_seconds, extra=extra)
 
 
@@ -196,6 +213,9 @@ def main() -> None:
     parser.add_argument('--taskinterval', type=int, default=TASK_INTERVAL_SECONDS)
     parser.add_argument('--taskgroupinterval', type=int, default=GROUPING_INTERVAL_SECONDS)
     parser.add_argument('--stopafter', type=int, default=HUMAN_LIFESPAN_SECONDS)
+    parser.add_argument('--stop-on-first-success', action='store_true',
+                        help='Exit as soon as one metric workflow completes successfully, '
+                             'instead of running until --stopafter expires.')
     parser.add_argument('--extra', nargs='*', default=EXTRA_DEFAULTS)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--workflows', nargs='*', help='Names of specific workflows to load (without .py)')
@@ -214,7 +234,8 @@ def main() -> None:
             taskgroupinterval=args.taskgroupinterval,
             lifespan_seconds=args.stopafter,
             extra=args.extra,
-            workflows_list=args.workflows
+            workflows_list=args.workflows,
+            stop_on_first_success=args.stop_on_first_success
         )
 
     except KeyboardInterrupt:
