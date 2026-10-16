@@ -8,3 +8,10 @@ beautifulsoup4
 # workflow failed roughly one run in three with FeatureNotFound -- often
 # enough to look flaky, rarely enough to pass a spot check.
 lxml
+# moodle.py does `from faker import Faker` to invent student names. It was
+# never declared, so a clean install silently loses the workflow entirely:
+# pyhuman logs "could not load workflow moodle.py: No module named 'faker'"
+# and, if moodle was the only workflow requested, exits having emitted no
+# events at all -- which scores as a failure with no stated reason. It worked
+# on deployed VMs only because something else there already provided it.
+faker
