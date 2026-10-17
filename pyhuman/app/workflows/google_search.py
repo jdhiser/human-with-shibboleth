@@ -89,6 +89,21 @@ class GoogleSearch(MetricWorkflow):
         except Exception as e:
             print('Error performing google search %s: %s' %
                   (random_search.rstrip(), e))
+            # Say WHERE it failed, not just that it did. Diagnosing the search
+            # path previously meant guessing between "the results selector no
+            # longer matches" and "Google served its /sorry bot-check page",
+            # because neither the URL nor the title was ever recorded -- the
+            # exception alone cannot tell them apart.
+            try:
+                drv = self.driver.driver
+                url = drv.current_url
+                print('At url  : %s' % url[:200])
+                print('At title: %s' % (drv.title or '')[:120])
+                blocked = '/sorry' in url or 'unusual traffic' in \
+                    drv.find_element(By.TAG_NAME, 'body').text.lower()
+                print('Looks like a bot-check page: %s' % blocked)
+            except Exception as diag:
+                print('(could not capture page context: %s)' % str(diag)[:100])
             print('At:')
             print(e)
             print(traceback.format_exc())
