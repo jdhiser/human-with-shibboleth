@@ -6,6 +6,7 @@ import random
 from ..utility.metric_workflow import MetricWorkflow
 from ..utility.webdriver_helper import WebDriverHelper
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
@@ -79,7 +80,7 @@ class GoogleSearch(MetricWorkflow):
                 sleep(DEFAULT_WAIT_TIME)
                 self._click_on_search_result()
             elif chosen_action == "lucky":
-                self._hover_click_feeling_lucky()
+                self._hover_click_feeling_lucky(random_search)
 
             sleep(DEFAULT_WAIT_TIME)
             # Randomly navigate on the current website
@@ -96,9 +97,18 @@ class GoogleSearch(MetricWorkflow):
         return False
 
     def _click_on_search_result(self):
+        """Click a result, located by structure rather than by CSS class.
+
+        The old selector was CLASS_NAME "yuRUbf" -- one of Google's obfuscated
+        build-generated classes, which changes without notice and had stopped
+        matching. A result link is more durably described as "an anchor inside
+        the results container that contains an h3 heading".
+        """
         print(".... Clicking on search  result")
-        search_result = WebDriverWait(self.driver.driver, 30).until(
-            EC.visibility_of_any_elements_located((By.CLASS_NAME, "yuRUbf")))[0]
+        results = WebDriverWait(self.driver.driver, 30).until(
+            EC.visibility_of_any_elements_located(
+                (By.XPATH, "//div[@id='search']//a[.//h3] | //div[@id='rso']//a[.//h3]")))
+        search_result = results[0]
         ActionChains(self.driver.driver).move_to_element(
             search_result).click(search_result).perform()
 
@@ -118,18 +128,58 @@ class GoogleSearch(MetricWorkflow):
             sleep(DEFAULT_WAIT_TIME)
 
     def _google_search(self, random_search):
+        """Type the query AND submit it.
+
+        This used to type into the box and then scroll, never submitting, so
+        the results page was never requested and _click_on_search_result sat
+        waiting 30 s for results that could not appear. The workflow swallowed
+        the resulting TimeoutException and reported success, which is why a
+        search that never ran looked fine for so long.
+
+        send_keys(RETURN) rather than submit(): Selenium 4 raises on submit()
+        when the element is not inside a form, which is the case on Google's
+        current page (same reason browse_youtube uses RETURN).
+        """
         print(".... Googling:", random_search.rstrip())
         elem = self.driver.driver.find_element(By.NAME, 'q')
         elem.clear()
         sleep(self.input_wait_time)
         elem.send_keys(random_search)
-        self.driver.driver.execute_script(
-            "window.scrollTo(0, document.body.Height)")
 
-    def _hover_click_feeling_lucky(self):
+        # Submit to whatever currently has focus, which is the box just typed
+        # into. Two cheaper-looking approaches both fail on Google's current
+        # page: sending RETURN to the element captured above raises
+        # StaleElementReferenceException, because the autocomplete dropdown
+        # re-renders the box while you type; and re-finding By.NAME 'q' raises
+        # ElementNotInteractableException, because the page carries more than
+        # one element named q and the first match is not the visible textarea.
+        ActionChains(self.driver.driver).send_keys(Keys.RETURN).perform()
+
+        WebDriverWait(self.driver.driver, 20).until(
+            EC.presence_of_element_located((By.ID, "search")))
+        self.driver.driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight)")
+
+    def _hover_click_feeling_lucky(self, random_search=None):
+        """Click "I'm Feeling Lucky", or fall back to an ordinary search.
+
+        The button is not always present or visible on Google's current
+        homepage, and when it is missing this waited the full 30 s and raised.
+        Half of all runs pick this branch, so that alone made the workflow fail
+        about half the time once it stopped swallowing errors. Not finding an
+        optional button is not a failure of the workflow.
+        """
         print(".... Hovering & clicking 'I'm Feeling lucky' button")
-        element = WebDriverWait(self.driver.driver, 30).until(
-            EC.visibility_of_any_elements_located((By. CSS_SELECTOR, '[name="btnI"][type="submit"]')))[0]
+        try:
+            element = WebDriverWait(self.driver.driver, 5).until(
+                EC.visibility_of_any_elements_located(
+                    (By.CSS_SELECTOR, '[name="btnI"]')))[0]
+        except Exception:
+            print(".... 'I'm Feeling lucky' not available; doing a normal search")
+            self._google_search(random_search or self._get_random_search())
+            sleep(DEFAULT_WAIT_TIME)
+            self._click_on_search_result()
+            return
         ActionChains(self.driver.driver).move_to_element(
             element).click(element).perform()
 
