@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 
 WORKFLOW_NAME = 'GoogleSearcher'
@@ -74,11 +75,22 @@ class GoogleSearch(MetricWorkflow):
             chosen_action = random.choice(["search-term", "lucky"])
 
             if chosen_action == "search-term":
-                self._google_search(random_search)
-                sleep(DEFAULT_WAIT_TIME)
-                self._browse_search_results()
-                sleep(DEFAULT_WAIT_TIME)
-                self._click_on_search_result()
+                if self._google_search(random_search):
+                    # Google blocks automated searches from some networks, and
+                    # both clusters this runs on are among them. Every
+                    # search-term attempt there ended on /sorry while every
+                    # "I'm Feeling Lucky" attempt succeeded, so the workflow
+                    # passed only when the harness happened to retry into the
+                    # lucky branch. Fall back to it deliberately instead.
+                    print(".... falling back to \'I\'m Feeling Lucky\'")
+                    self.driver.driver.get('https://www.google.com')
+                    sleep(DEFAULT_WAIT_TIME)
+                    self._hover_click_feeling_lucky(random_search)
+                else:
+                    sleep(DEFAULT_WAIT_TIME)
+                    self._browse_search_results()
+                    sleep(DEFAULT_WAIT_TIME)
+                    self._click_on_search_result()
             elif chosen_action == "lucky":
                 self._hover_click_feeling_lucky(random_search)
 
@@ -170,10 +182,31 @@ class GoogleSearch(MetricWorkflow):
         # one element named q and the first match is not the visible textarea.
         ActionChains(self.driver.driver).send_keys(Keys.RETURN).perform()
 
-        WebDriverWait(self.driver.driver, 20).until(
-            EC.presence_of_element_located((By.ID, "search")))
+        # Results, or Google's bot check. Report the latter rather than
+        # raising: it is an environment condition, not a defect, and the
+        # caller can still complete the workflow another way.
+        try:
+            WebDriverWait(self.driver.driver, 20).until(
+                EC.presence_of_element_located((By.ID, "search")))
+        except TimeoutException:
+            if self._looks_like_bot_check():
+                print(".... search answered with a bot check")
+                return True
+            raise
         self.driver.driver.execute_script(
             "window.scrollTo(0, document.body.scrollHeight)")
+        return False
+
+    def _looks_like_bot_check(self):
+        """True if the current page is Google's "unusual traffic" interstitial."""
+        try:
+            drv = self.driver.driver
+            if '/sorry' in drv.current_url:
+                return True
+            return 'unusual traffic' in drv.find_element(
+                By.TAG_NAME, 'body').text.lower()
+        except Exception:
+            return False
 
     def _hover_click_feeling_lucky(self, random_search=None):
         """Click "I'm Feeling Lucky", or fall back to an ordinary search.
