@@ -40,11 +40,27 @@ class GoogleSearch(MetricWorkflow):
         self.search_list = self._load_search_list()
 
     def action(self, extra=None):
-        self._search_web()
+        """
+        Main entry point for the workflow.
+
+        Returns:
+            bool: True on error, False on success.
+        """
+        return self._search_web()
 
     """ PRIVATE """
 
     def _search_web(self):
+        """Run one search. Returns True on error, False on success.
+
+        The result has to be returned rather than swallowed: human.py's
+        handle_workflow() logs a metric success unless action() reports an
+        error, so a workflow that catches everything and returns None is
+        recorded as having succeeded no matter what happened. This one did
+        exactly that -- it logged 9-12 body-level successes on a host with no
+        browser installed at all, which made its summary column 1/1
+        unconditionally and meant CI could never fail on it.
+        """
         self._deadline = time() + WORKFLOW_BUDGET_S
         random_search = self._get_random_search()
         try:
@@ -75,6 +91,9 @@ class GoogleSearch(MetricWorkflow):
             print('At:')
             print(e)
             print(traceback.format_exc())
+            return True
+
+        return False
 
     def _click_on_search_result(self):
         print(".... Clicking on search  result")
