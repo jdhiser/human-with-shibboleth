@@ -65,18 +65,38 @@ class WebDriverHelper(BaseDriverHelper):
         return self._driver
 
     def stop_browser(self):
-        if self._driver == None:
+        # quit() talks to chromedriver over HTTP, so when the driver is the
+        # thing that has hung, this is exactly the call that cannot complete:
+        # it raises ReadTimeoutError after urllib3 burns its three 120 s
+        # retries. The assignment below used to sit after an unguarded quit(),
+        # so it never ran, and because this class is a Singleton the dead
+        # driver stayed installed -- every later workflow in the run picked it
+        # up again and timed out against the same port.
+        #
+        # Round 39 CI #958 is the example: browse_web hung, "Trying browser
+        # restart" was printed, and the three retries that followed all went
+        # to the same localhost:52703 that had already stopped answering.
+        #
+        # Dropping the reference is the part that matters -- get_driver()
+        # lazily builds a fresh driver when it is None -- so it happens in
+        # finally, whether or not the polite shutdown works.
+        if self._driver is None:
             return
-        self._driver.quit()
-        self._driver = None
+        try:
+            self._driver.quit()
+        except Exception as e:  # noqa: BLE001
+            print(f"stop_browser: quit() failed ({type(e).__name__}: {e}); "
+                  "dropping the driver reference anyway")
+        finally:
+            self._driver = None
 
     def restart_browser(self):
-        self._driver.quit()
-        self._driver = webdriver.Chrome(
-            self._driver_path, options=self.options)
+        # Same hazard: a hung driver must not stop us building a new one.
+        self.stop_browser()
+        return self.get_driver()
 
     def cleanup(self):
-        self._driver.quit()
+        self.stop_browser()
 
     """ PRIVATE """
 
