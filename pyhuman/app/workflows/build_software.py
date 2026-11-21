@@ -9,6 +9,54 @@ from ..utility.metric_workflow import MetricWorkflow
 WORKFLOW_NAME = 'BuildSoftware'
 WORKFLOW_DESCRIPTION = 'Pick a random piece of software, download it, install prereqs, and build the software'
 
+# Offline package store.
+#
+# Empty unless RBP phase 1 staged one, so every helper below falls through to
+# the upstream URL and an online run is byte-for-byte what it was.
+#
+# The file is read directly rather than trusting the environment: pyhuman is
+# launched from a non-interactive context that does not source
+# /etc/profile.d.
+def _offline_base():
+    base = (os.environ.get('CASTLE_OFFLINE_BASE') or '').strip()
+    if not base:
+        try:
+            with open('/etc/profile.d/castle-offline.sh') as fh:
+                for line in fh:
+                    if line.startswith('export CASTLE_OFFLINE_BASE='):
+                        base = line.split('=', 1)[1].strip().strip('"').strip("'")
+        except OSError:
+            base = ''
+    return base.rstrip('/')
+
+
+def _clone_step(name, online_cmd, online_pattern=r"Cloning into"):
+    """
+    A git clone online; the mirrored shallow archive offline.
+
+    The archive is built with `git archive --prefix=<name>/`, so it extracts
+    to the same directory the clone would have produced and the `cd <name>`
+    step that follows is identical either way.
+
+    The expected-output pattern has to change with the command: "Cloning
+    into" never appears when the source arrives as a tarball, and leaving it
+    in place would fail a step that actually succeeded.
+    """
+    base = _offline_base()
+    if not base:
+        return (online_cmd, online_pattern)
+    return ("curl -sfL -o {0}.tar.gz {1}/src/{0}.tar.gz && tar xzf {0}.tar.gz".format(name, base),
+            r".*")
+
+
+def _fetch_step(filename, online_cmd, online_pattern=r"Saving to"):
+    """A wget/curl of a source tarball online; the stored copy offline."""
+    base = _offline_base()
+    if not base:
+        return (online_cmd, online_pattern)
+    return ("curl -sfL -O {0}/files/build_software/{1}".format(base, filename), r".*")
+
+
 # Define basic success check using regex
 
 
@@ -62,7 +110,7 @@ def tarball_check_contains(string):
 software_projects = cmds([
     [
         ("rm -rf htop*", r".*"),
-        ("git clone --depth 1 https://github.com/htop-dev/htop.git", r"Cloning into"),
+        _clone_step("htop", "git clone --depth 1 https://github.com/htop-dev/htop.git", r"Cloning into"),
         ("cd htop", cmd_no_err),
         ("./autogen.sh", r"configure"),
         ("./configure", r"config.status"),
@@ -71,7 +119,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf jq*", r".*"),
-        ("git clone --depth 1 https://github.com/jqlang/jq.git", r"Cloning into"),
+        _clone_step("jq", "git clone --depth 1 https://github.com/jqlang/jq.git", r"Cloning into"),
         ("cd jq", cmd_no_err),
         ("git submodule update --init", r"Submodule|Checking out files"),
         ("autoreconf -fi", r"configure"),
@@ -81,7 +129,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf tmux*", r".*"),
-        ("git clone --depth 1 https://github.com/tmux/tmux.git", r"Cloning into"),
+        _clone_step("tmux", "git clone --depth 1 https://github.com/tmux/tmux.git", r"Cloning into"),
         ("cd tmux", cmd_no_err),
         ("sh autogen.sh", r"configure"),
         ("./configure", r"config.status"),
@@ -94,14 +142,14 @@ software_projects = cmds([
         # rejects at compile time ("undefined: fmt.Append"). v2.0.11 is
         # the last release whose go.mod still says `go 1.16`.
         ("rm -rf micro*", r".*"),
-        ("git clone --branch v2.0.11 --depth 1 https://github.com/zyedidia/micro.git", r"Cloning into"),
+        _clone_step("micro", "git clone --branch v2.0.11 --depth 1 https://github.com/zyedidia/micro.git", r"Cloning into"),
         ("cd micro", cmd_no_err),
         ("make ", r"go build"),
         ("./micro --help", r"Usage: micro"),
     ],
     [
         ("rm -rf neovim*", r".*"),
-        ("git clone --depth 1 https://github.com/neovim/neovim.git", r"Cloning into"),
+        _clone_step("neovim", "git clone --depth 1 https://github.com/neovim/neovim.git", r"Cloning into"),
         ("cd neovim", cmd_no_err),
         ("make CMAKE_BUILD_TYPE=Release -j", r"Generating doc/tags"),
         ("./build/bin/nvim --version", r"NVIM"),
@@ -110,7 +158,7 @@ software_projects = cmds([
         ("rm -rf wget*", r".*"),
         ("mkdir wget", cmd_no_err),
         ("cd wget", cmd_no_err),
-        ("wget https://ftpmirror.gnu.org/gnu/wget/wget-1.21.4.tar.gz", r"Saving to"),
+        _fetch_step("wget-1.21.4.tar.gz", "wget https://ftpmirror.gnu.org/gnu/wget/wget-1.21.4.tar.gz", r"Saving to"),
         ("tar xf wget-1.21.4.tar.gz", r".*"),
         ("cd wget-1.21.4", cmd_no_err),
         ("./configure", r"config.status"),
@@ -119,7 +167,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf man-db*", r".*"),
-        ("wget https://download.savannah.gnu.org/releases/man-db/man-db-2.12.0.tar.xz", r"Saving to"),
+        _fetch_step("man-db-2.12.0.tar.xz", "wget https://download.savannah.gnu.org/releases/man-db/man-db-2.12.0.tar.xz", r"Saving to"),
         ("tar xf man-db-2.12.0.tar.xz", r".*"),
         ("cd man-db-2.12.0", cmd_no_err),
         ("./configure", r"config.status"),
@@ -128,8 +176,9 @@ software_projects = cmds([
     ],
     [
         ("rm -rf xz*", r".*"),
-        ("curl -LO https://tukaani.org/xz/xz-5.4.5.tar.gz",
-         r"Average Speed   Time    Time     Time  Current"),
+        _fetch_step("xz-5.4.5.tar.gz",
+                    "curl -LO https://tukaani.org/xz/xz-5.4.5.tar.gz",
+                    r"Average Speed   Time    Time     Time  Current"),
         ("tar xf xz-5.4.5.tar.gz", r".*"),
         ("cd xz-5.4.5", cmd_no_err),
         ("./configure", r"config.status"),
@@ -138,7 +187,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf ncurses*", r".*"),
-        ("wget https://ftpmirror.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz", r"Saving to"),
+        _fetch_step("ncurses-6.4.tar.gz", "wget https://ftpmirror.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz", r"Saving to"),
         ("tar xf ncurses-6.4.tar.gz", r".*"),
         ("cd ncurses-6.4", cmd_no_err),
         ("./configure", r"config.status"),
@@ -147,14 +196,14 @@ software_projects = cmds([
     ],
     [
         ("rm -rf sbase*", r".*"),
-        ("git clone git://git.suckless.org/sbase", r"Cloning into"),
+        _clone_step("sbase", "git clone git://git.suckless.org/sbase", r"Cloning into"),
         ("cd sbase", cmd_no_err),
         ("make -j", r"c99"),
         ("./ls --help || true", r"usage|Usage|invalid option"),
     ],
     [
         ("rm -rf zutils*", r".*"),
-        ("wget https://download.savannah.gnu.org/releases/zutils/zutils-1.11.tar.lz", r"Saving to"),
+        _fetch_step("zutils-1.11.tar.lz", "wget https://download.savannah.gnu.org/releases/zutils/zutils-1.11.tar.lz", r"Saving to"),
         ("tar --lzip -xf zutils-1.11.tar.lz", r".*"),
         ("cd zutils-1.11", cmd_no_err),
         ("./configure", r"config.status"),
@@ -163,7 +212,7 @@ software_projects = cmds([
     ],
     [
         ("rm -rf bash*", r".*"),
-        ("wget https://ftpmirror.gnu.org/gnu/bash/bash-5.2.15.tar.gz", r"Saving to"),
+        _fetch_step("bash-5.2.15.tar.gz", "wget https://ftpmirror.gnu.org/gnu/bash/bash-5.2.15.tar.gz", r"Saving to"),
         ("tar xf bash-5.2.15.tar.gz", r".*"),
         ("cd bash-5.2.15", cmd_no_err),
         ("./configure", r"config.status"),
