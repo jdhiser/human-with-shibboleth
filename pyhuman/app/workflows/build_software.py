@@ -45,22 +45,23 @@ def _clone_step(name, online_cmd, online_pattern=r"Cloning into"):
     base = _offline_base()
     if not base:
         return (online_cmd, online_pattern)
-    # Positive proof, not r".*".
+    # wget, not curl, and no && test && echo tail.
     #
-    # r".*" matches the output of a command that did nothing. pyhuman types
-    # with deliberate typos, so a mangled `curl` downloads nothing, the step
-    # is still scored "success", and the failure surfaces two steps later at
-    # `cd <name>` -- which is exactly how build_software failed the first
-    # air-gapped run that got far enough to run it. The comment under
-    # cmd_no_err below records someone fixing this same class of bug for
-    # setup steps; this reintroduced it.
+    # Two bugs in a row here, in opposite directions. First the offline
+    # branch scored with r".*", which matches the output of a command that
+    # did nothing, so a typo'd fetch passed and failed later at `cd`. The fix
+    # appended `&& test -s X && echo TOKEN` -- which verified correctly but
+    # made the command much longer, and pyhuman types with per-character
+    # typos, so every retry got mangled and the step failed outright.
     #
-    # Echoing a token only reachable after a non-empty download and a
-    # successful extract means a mistyped command scores "retry", which is
-    # what the typo simulation needs.
-    return ("curl -sfL -o {0}.tar.gz {1}/src/{0}.tar.gz && tar xzf {0}.tar.gz "
-            "&& test -d {0} && echo CASTLE_FETCHED_{0}".format(name, base),
-            r"CASTLE_FETCHED_{0}".format(name))
+    # Using wget keeps the command the same length as the online one and
+    # reuses its proven "Saving to" check: the download is genuinely
+    # verified, and the typo rate stays what the workflow was tuned for.
+    # "Saving to", not online_pattern: the online pattern is "Cloning into",
+    # which wget never prints. The docstring above says exactly this, and
+    # passing online_pattern through would fail every offline clone step.
+    return ("wget {1}/src/{0}.tar.gz && tar xzf {0}.tar.gz".format(name, base),
+            r"Saving to")
 
 
 def _fetch_step(filename, online_cmd, online_pattern=r"Saving to"):
@@ -68,11 +69,11 @@ def _fetch_step(filename, online_cmd, online_pattern=r"Saving to"):
     base = _offline_base()
     if not base:
         return (online_cmd, online_pattern)
-    # Same reasoning as _clone_step: prove the file arrived and is non-empty
-    # rather than accepting any output at all.
-    return ("curl -sfL -O {0}/files/build_software/{1} && test -s {1} "
-            "&& echo CASTLE_FETCHED_{1}".format(base, filename),
-            r"CASTLE_FETCHED_{0}".format(re.escape(filename)))
+    # wget for the same reason as _clone_step above: same length as the
+    # online command, same proven "Saving to" check.
+    return ("wget {0}/files/build_software/{1}".format(base, filename),
+            online_pattern)
+
 
 
 # Define basic success check using regex
