@@ -71,8 +71,15 @@ def _fetch_step(filename, online_cmd, online_pattern=r"Saving to"):
         return (online_cmd, online_pattern)
     # wget for the same reason as _clone_step above: same length as the
     # online command, same proven "Saving to" check.
+    #
+    # The pattern is OURS, not the caller's: this branch always emits wget,
+    # so a caller whose online command was curl passes a curl pattern that
+    # wget output can never match. One caller (xz) does exactly that --
+    # "Average Speed Time Time Time Current" is curl's progress header --
+    # and it would have failed offline while reporting a fetch problem.
+    # Whoever picks the command has to pick the check that goes with it.
     return ("wget {0}/files/build_software/{1}".format(base, filename),
-            online_pattern)
+            r"Saving to")
 
 
 
