@@ -45,8 +45,22 @@ def _clone_step(name, online_cmd, online_pattern=r"Cloning into"):
     base = _offline_base()
     if not base:
         return (online_cmd, online_pattern)
-    return ("curl -sfL -o {0}.tar.gz {1}/src/{0}.tar.gz && tar xzf {0}.tar.gz".format(name, base),
-            r".*")
+    # Positive proof, not r".*".
+    #
+    # r".*" matches the output of a command that did nothing. pyhuman types
+    # with deliberate typos, so a mangled `curl` downloads nothing, the step
+    # is still scored "success", and the failure surfaces two steps later at
+    # `cd <name>` -- which is exactly how build_software failed the first
+    # air-gapped run that got far enough to run it. The comment under
+    # cmd_no_err below records someone fixing this same class of bug for
+    # setup steps; this reintroduced it.
+    #
+    # Echoing a token only reachable after a non-empty download and a
+    # successful extract means a mistyped command scores "retry", which is
+    # what the typo simulation needs.
+    return ("curl -sfL -o {0}.tar.gz {1}/src/{0}.tar.gz && tar xzf {0}.tar.gz "
+            "&& test -d {0} && echo CASTLE_FETCHED_{0}".format(name, base),
+            r"CASTLE_FETCHED_{0}".format(name))
 
 
 def _fetch_step(filename, online_cmd, online_pattern=r"Saving to"):
@@ -54,7 +68,11 @@ def _fetch_step(filename, online_cmd, online_pattern=r"Saving to"):
     base = _offline_base()
     if not base:
         return (online_cmd, online_pattern)
-    return ("curl -sfL -O {0}/files/build_software/{1}".format(base, filename), r".*")
+    # Same reasoning as _clone_step: prove the file arrived and is non-empty
+    # rather than accepting any output at all.
+    return ("curl -sfL -O {0}/files/build_software/{1} && test -s {1} "
+            "&& echo CASTLE_FETCHED_{1}".format(base, filename),
+            r"CASTLE_FETCHED_{0}".format(re.escape(filename)))
 
 
 # Define basic success check using regex
