@@ -2,6 +2,7 @@ import os
 import getpass
 import re
 import shutil
+import socket
 import subprocess
 import urllib.request
 import zipfile
@@ -44,6 +45,47 @@ def _offline_base():
         except OSError:
             base = ''
     return base.rstrip('/')
+
+
+def _internal_domain():
+    """The deployment's internal DNS domain, e.g. castle.project2.os."""
+    try:
+        out = subprocess.run(['hostname', '-d'], capture_output=True,
+                             text=True, timeout=15).stdout.strip()
+        if out:
+            return out
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        with open('/etc/resolv.conf') as fh:
+            for line in fh:
+                if line.startswith(('search ', 'domain ')):
+                    return line.split()[1]
+    except OSError:
+        pass
+    return socket.getfqdn().partition('.')[2]
+
+
+def _internal_bypass_list():
+    """
+    Hosts the browser must still reach directly when offline. Everything
+    else goes to a dead port and fails instantly instead of hanging on a
+    dropped SYN.
+
+    Keyed on the internal TLD, not on this host's own domain. That matters:
+    eng-hmi's FQDN is eng-hmi.axes.os while Moodle is served from
+    service.project2.os, so a bypass built from the host's own domain would
+    have sent the deployment's OWN sites to the dead proxy and broken the
+    browser workflows that currently pass. Every castle name -- axes.os,
+    castle.project2.os, service.project2.os -- ends in the same internal
+    TLD (.os), which no public CDN uses.
+    """
+    entries = ['<local>', 'localhost', '127.0.0.1',
+               '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
+    tld = (_internal_domain() or '').rsplit('.', 1)[-1].strip()
+    if tld:
+        entries.insert(0, f'*.{tld}')
+    return ';'.join(entries)
 
 
 def _chrome_major():
@@ -146,6 +188,30 @@ class WebDriverHelper(BaseDriverHelper):
             # Use custom cache manager
             cache_manager = DriverCacheManager(cache_dir)
 
+        if _offline_base():
+            # Air-gapped, egress is DROPPED rather than refused, so a page
+            # that pulls a font or script from a CDN leaves the renderer
+            # waiting on a SYN that is never answered. Moodle's dashboard
+            # does exactly that -- caught with sockets stuck in SYN_SENT to
+            # Google and Fastly -- and the workflow died on a timeout that
+            # named neither the network nor the CDN.
+            #
+            # page_load_strategy='eager' is NOT enough: it returns at
+            # DOMContentLoaded, but the renderer itself stays blocked, and
+            # the failure just moves to "Timed out receiving message from
+            # renderer". The external request has to fail FAST instead.
+            #
+            # So send everything external to a dead loopback port: the
+            # connection is refused instantly instead of hanging, and the
+            # page finishes without it. Internal hosts bypass the proxy and
+            # are reached directly, exactly as before.
+            self.options.page_load_strategy = 'eager'
+            bypass = _internal_bypass_list()
+            self.options.add_argument('--proxy-server=http://127.0.0.1:1')
+            self.options.add_argument('--proxy-bypass-list=' + bypass)
+            print(f"... offline: external hosts refused fast, "
+                  f"bypassing {bypass}")
+
         self._driver_path = (offline_chromedriver()
                              or ChromeDriverManager(
                                  cache_manager=cache_manager).install())
@@ -156,6 +222,10 @@ class WebDriverHelper(BaseDriverHelper):
         if self._driver is None:
             self._driver = webdriver.Chrome(service=Service(
                 self._driver_path), options=self.options)
+            if _offline_base():
+                # Bound the load even with "eager": a subresource that is
+                # still hanging must not outlive the command timeout.
+                self._driver.set_page_load_timeout(60)
         return self._driver
 
     def stop_browser(self):
